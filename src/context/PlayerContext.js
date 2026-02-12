@@ -3,17 +3,13 @@ import React, {
   useState,
   useEffect,
   useCallback,
+  useRef,
 } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { TRACKS, SESSIONS } from '../constants/data';
 
-/* -------------------- */
-/* Context */
-/* -------------------- */
 export const PlayerContext = createContext(null);
 
-/* -------------------- */
-/* Storage keys */
-/* -------------------- */
 const STORAGE_KEYS = {
   FAVORITES: '@glacier_favorites',
   HISTORY: '@glacier_history',
@@ -26,52 +22,62 @@ const STORAGE_KEYS = {
   PRIVACY_SETTINGS: '@glacier_privacy_settings',
 };
 
-/* -------------------- */
-/* Constants */
-/* -------------------- */
 const FREE_DOWNLOAD_LIMIT = 3;
 const MAX_HISTORY_ITEMS = 100;
 
-/* -------------------- */
-/* Provider */
-/* -------------------- */
+// Parse duration string to seconds
+const parseDuration = (durationStr) => {
+  if (!durationStr) return 270;
+  
+  if (durationStr.includes('min')) {
+    const mins = parseInt(durationStr.replace(' min', ''));
+    return mins * 60;
+  }
+  
+  const parts = durationStr.split(':');
+  if (parts.length === 2) {
+    return parseInt(parts[0]) * 60 + parseInt(parts[1]);
+  }
+  
+  return 270;
+};
+
 export const PlayerProvider = ({ children }) => {
   const [currentTrack, setCurrentTrack] = useState(null);
   const [isPlaying, setIsPlaying] = useState(false);
-  const [progress, setProgress] = useState(0);
+  const [currentTime, setCurrentTime] = useState(0);
+  const [duration, setDuration] = useState(0);
+  const [queue, setQueue] = useState([]);
+  const [isSeeking, setIsSeeking] = useState(false); // Track if user is seeking
+  
+  const [repeatMode, setRepeatMode] = useState('off');
+  const [shuffleEnabled, setShuffleEnabled] = useState(false);
 
   const [favorites, setFavorites] = useState([]);
   const [history, setHistory] = useState([]);
   const [playlists, setPlaylists] = useState([]);
-  
-  // User created playlists
   const [userPlaylists, setUserPlaylists] = useState([]);
-  
-  // Downloads
   const [downloads, setDownloads] = useState([]);
-  
-  // Premium status
   const [isPremium, setIsPremium] = useState(false);
   
-  // Notifications state with default values
   const [notifications, setNotifications] = useState({
     newReleases: true,
     recommendations: true,
     reminders: false,
   });
   
-  // Privacy settings
   const [privacySettings, setPrivacySettings] = useState({
     analytics: true,
     saveHistory: true,
   });
   
-  // Download quality setting
   const [downloadQuality, setDownloadQuality] = useState('medium');
-  
-  // Sleep timer
   const [sleepTimer, setSleepTimer] = useState(null);
   const [sleepTimerActive, setSleepTimerActive] = useState(false);
+
+  const progressInterval = useRef(null);
+
+  const progress = duration > 0 ? (currentTime / duration) * 100 : 0;
 
   /* ---------- Load persisted data ---------- */
   useEffect(() => {
@@ -104,82 +110,102 @@ export const PlayerProvider = ({ children }) => {
     };
 
     loadData();
+    setQueue(TRACKS);
   }, []);
+
+  /* ---------- Progress simulation - only when NOT seeking ---------- */
+  useEffect(() => {
+    // Clear any existing interval
+    if (progressInterval.current) {
+      clearInterval(progressInterval.current);
+      progressInterval.current = null;
+    }
+
+    // Only run interval if playing, has track, has duration, and NOT seeking
+    if (isPlaying && currentTrack && duration > 0 && !isSeeking) {
+      progressInterval.current = setInterval(() => {
+        setCurrentTime(prev => {
+          if (prev >= duration) {
+            handleTrackEnd();
+            return 0;
+          }
+          return prev + 1;
+        });
+      }, 1000);
+    }
+
+    return () => {
+      if (progressInterval.current) {
+        clearInterval(progressInterval.current);
+        progressInterval.current = null;
+      }
+    };
+  }, [isPlaying, currentTrack, duration, isSeeking, repeatMode, shuffleEnabled]);
+
+  const handleTrackEnd = () => {
+    if (repeatMode === 'one') {
+      setCurrentTime(0);
+      setIsPlaying(true);
+    } else {
+      playNextInternal();
+    }
+  };
 
   /* ---------- Persist ---------- */
   useEffect(() => {
-    AsyncStorage.setItem(
-      STORAGE_KEYS.FAVORITES,
-      JSON.stringify(favorites)
-    );
+    AsyncStorage.setItem(STORAGE_KEYS.FAVORITES, JSON.stringify(favorites));
   }, [favorites]);
 
   useEffect(() => {
-    AsyncStorage.setItem(
-      STORAGE_KEYS.HISTORY,
-      JSON.stringify(history)
-    );
+    AsyncStorage.setItem(STORAGE_KEYS.HISTORY, JSON.stringify(history));
   }, [history]);
 
   useEffect(() => {
-    AsyncStorage.setItem(
-      STORAGE_KEYS.PLAYLISTS,
-      JSON.stringify(playlists)
-    );
+    AsyncStorage.setItem(STORAGE_KEYS.PLAYLISTS, JSON.stringify(playlists));
   }, [playlists]);
 
   useEffect(() => {
-    AsyncStorage.setItem(
-      STORAGE_KEYS.NOTIFICATIONS,
-      JSON.stringify(notifications)
-    );
+    AsyncStorage.setItem(STORAGE_KEYS.NOTIFICATIONS, JSON.stringify(notifications));
   }, [notifications]);
 
   useEffect(() => {
-    AsyncStorage.setItem(
-      STORAGE_KEYS.USER_PLAYLISTS,
-      JSON.stringify(userPlaylists)
-    );
+    AsyncStorage.setItem(STORAGE_KEYS.USER_PLAYLISTS, JSON.stringify(userPlaylists));
   }, [userPlaylists]);
 
   useEffect(() => {
-    AsyncStorage.setItem(
-      STORAGE_KEYS.DOWNLOAD_QUALITY,
-      downloadQuality
-    );
+    AsyncStorage.setItem(STORAGE_KEYS.DOWNLOAD_QUALITY, downloadQuality);
   }, [downloadQuality]);
 
   useEffect(() => {
-    AsyncStorage.setItem(
-      STORAGE_KEYS.DOWNLOADS,
-      JSON.stringify(downloads)
-    );
+    AsyncStorage.setItem(STORAGE_KEYS.DOWNLOADS, JSON.stringify(downloads));
   }, [downloads]);
 
   useEffect(() => {
-    AsyncStorage.setItem(
-      STORAGE_KEYS.IS_PREMIUM,
-      JSON.stringify(isPremium)
-    );
+    AsyncStorage.setItem(STORAGE_KEYS.IS_PREMIUM, JSON.stringify(isPremium));
   }, [isPremium]);
 
   useEffect(() => {
-    AsyncStorage.setItem(
-      STORAGE_KEYS.PRIVACY_SETTINGS,
-      JSON.stringify(privacySettings)
-    );
+    AsyncStorage.setItem(STORAGE_KEYS.PRIVACY_SETTINGS, JSON.stringify(privacySettings));
   }, [privacySettings]);
 
   /* ---------- Player logic ---------- */
-  const playTrack = useCallback((track) => {
+  const playTrack = useCallback((track, trackQueue = null) => {
     setCurrentTrack(track);
     setIsPlaying(true);
-    setProgress(0);
+    setCurrentTime(0);
+    setIsSeeking(false);
+    
+    const trackDuration = parseDuration(track.duration);
+    setDuration(trackDuration);
 
-    // Only save to history if privacy setting allows
+    if (trackQueue) {
+      setQueue(trackQueue);
+    } else if (track.type === 'session') {
+      setQueue(SESSIONS);
+    }
+
     if (privacySettings.saveHistory) {
       setHistory((prev) => {
-        // Remove duplicate if exists
         const filtered = prev.filter(t => t.id !== track.id);
         return [
           { ...track, playedAt: Date.now() },
@@ -191,8 +217,38 @@ export const PlayerProvider = ({ children }) => {
 
   const pause = () => setIsPlaying(false);
   const resume = () => currentTrack && setIsPlaying(true);
-  const togglePlayPause = () =>
-    isPlaying ? pause() : resume();
+  const togglePlayPause = () => isPlaying ? pause() : resume();
+
+  // Start seeking - pauses the progress interval
+  const startSeeking = () => {
+    setIsSeeking(true);
+  };
+
+  // Seek to position (0-100 percentage) and resume
+  const seekTo = (percentage) => {
+    const newTime = Math.floor((percentage / 100) * duration);
+    setCurrentTime(Math.max(0, Math.min(duration, newTime)));
+    setIsSeeking(false); // Resume progress updates
+  };
+
+  // Seek to specific time in seconds
+  const seekToTime = (seconds) => {
+    setCurrentTime(Math.max(0, Math.min(duration, Math.floor(seconds))));
+    setIsSeeking(false);
+  };
+
+  /* ---------- Repeat & Shuffle ---------- */
+  const toggleRepeat = () => {
+    setRepeatMode(prev => {
+      if (prev === 'off') return 'all';
+      if (prev === 'all') return 'one';
+      return 'off';
+    });
+  };
+
+  const toggleShuffle = () => {
+    setShuffleEnabled(prev => !prev);
+  };
 
   /* ---------- Favorites ---------- */
   const toggleFavorite = (track) => {
@@ -222,17 +278,14 @@ export const PlayerProvider = ({ children }) => {
   };
 
   const addToDownloads = (track) => {
-    // Check if already downloaded
     if (isDownloaded(track)) {
       return { success: false, reason: 'already_downloaded' };
     }
     
-    // Check download limit for free users
     if (!isPremium && downloads.length >= FREE_DOWNLOAD_LIMIT) {
       return { success: false, reason: 'limit_reached' };
     }
     
-    // Add to downloads
     setDownloads(prev => [...prev, { ...track, downloadedAt: Date.now() }]);
     return { success: true };
   };
@@ -292,31 +345,65 @@ export const PlayerProvider = ({ children }) => {
   const clearTrack = () => {
     setCurrentTrack(null);
     setIsPlaying(false);
-    setProgress(0);
+    setCurrentTime(0);
+    setDuration(0);
+    setIsSeeking(false);
+  };
+
+  const setPlayQueue = (tracks) => {
+    setQueue(tracks);
+  };
+
+  const playNextInternal = () => {
+    if (!currentTrack || queue.length === 0) return;
+    
+    const currentIndex = queue.findIndex(t => t.id === currentTrack.id);
+    
+    if (shuffleEnabled) {
+      const availableTracks = queue.filter(t => t.id !== currentTrack.id);
+      if (availableTracks.length > 0) {
+        const randomIndex = Math.floor(Math.random() * availableTracks.length);
+        playTrack(availableTracks[randomIndex], queue);
+      }
+    } else if (currentIndex !== -1 && currentIndex < queue.length - 1) {
+      playTrack(queue[currentIndex + 1], queue);
+    } else if (repeatMode === 'all' && queue.length > 0) {
+      playTrack(queue[0], queue);
+    }
   };
 
   const playNext = () => {
-    // Find current track in history and play the previous one (newer)
-    // Or just play a random track from history for now
-    if (history.length > 1) {
-      const currentIndex = history.findIndex(t => t.id === currentTrack?.id);
-      if (currentIndex > 0) {
-        // Play the previous item in history (which was played more recently)
-        playTrack(history[currentIndex - 1]);
-      } else if (history.length > 0) {
-        // Play the next item
-        playTrack(history[Math.min(1, history.length - 1)]);
+    if (!currentTrack || queue.length === 0) return;
+    
+    const currentIndex = queue.findIndex(t => t.id === currentTrack.id);
+    
+    if (shuffleEnabled) {
+      const availableTracks = queue.filter(t => t.id !== currentTrack.id);
+      if (availableTracks.length > 0) {
+        const randomIndex = Math.floor(Math.random() * availableTracks.length);
+        playTrack(availableTracks[randomIndex], queue);
       }
+    } else if (currentIndex !== -1 && currentIndex < queue.length - 1) {
+      playTrack(queue[currentIndex + 1], queue);
+    } else if (queue.length > 0) {
+      playTrack(queue[0], queue);
     }
   };
 
   const playPrevious = () => {
-    // Find current track in history and play the next one (older)
-    if (history.length > 1) {
-      const currentIndex = history.findIndex(t => t.id === currentTrack?.id);
-      if (currentIndex >= 0 && currentIndex < history.length - 1) {
-        playTrack(history[currentIndex + 1]);
-      }
+    if (!currentTrack || queue.length === 0) return;
+    
+    if (currentTime > 3) {
+      setCurrentTime(0);
+      return;
+    }
+    
+    const currentIndex = queue.findIndex(t => t.id === currentTrack.id);
+    
+    if (currentIndex > 0) {
+      playTrack(queue[currentIndex - 1], queue);
+    } else if (queue.length > 0) {
+      playTrack(queue[queue.length - 1], queue);
     }
   };
 
@@ -325,6 +412,9 @@ export const PlayerProvider = ({ children }) => {
     currentTrack,
     isPlaying,
     progress,
+    currentTime,
+    duration,
+    isSeeking,
 
     playTrack,
     pause,
@@ -333,6 +423,16 @@ export const PlayerProvider = ({ children }) => {
     clearTrack,
     playNext,
     playPrevious,
+    setPlayQueue,
+    startSeeking,
+    seekTo,
+    seekToTime,
+    queue,
+
+    repeatMode,
+    toggleRepeat,
+    shuffleEnabled,
+    toggleShuffle,
 
     favorites,
     toggleFavorite,
@@ -343,37 +443,30 @@ export const PlayerProvider = ({ children }) => {
     
     playlists,
     
-    // User playlists
     userPlaylists,
     createPlaylist,
     deletePlaylist,
     addToPlaylist,
     
-    // Downloads
     downloads,
     isDownloaded,
     canDownload,
     addToDownloads,
     removeFromDownloads,
     
-    // Premium
     isPremium,
     activatePremium,
     deactivatePremium,
     
-    // Notifications
     notifications,
     setNotifications,
     
-    // Privacy
     privacySettings,
     setPrivacySettings,
     
-    // Download quality
     downloadQuality,
     setDownloadQuality,
     
-    // Sleep timer
     sleepTimer,
     sleepTimerActive,
     setSleepTimerValue,

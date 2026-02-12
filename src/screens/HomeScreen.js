@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -20,9 +20,11 @@ import {
   CategoryButton,
   TrackItem,
 } from '../components';
+import PremiumModal from './modals/PremiumModal';
 
 const HomeScreen = ({ navigation }) => {
-  const { playTrack, sleepTimerActive, sleepTimer } = usePlayer();
+  const { playTrack, sleepTimerActive, sleepTimer, isPremium, setPlayQueue } = usePlayer();
+  const [showPremium, setShowPremium] = useState(false);
 
   const handlePlayFeatured = () => {
     playTrack({
@@ -32,31 +34,40 @@ const HomeScreen = ({ navigation }) => {
   };
 
   const handleCategoryPress = (category) => {
-    // Navigate to the new CategoryScreen
     navigation.navigate('Category', { category: category.id });
   };
 
   const handleAlbumPress = (album) => {
-    const firstTrack = TRACKS.find(t => t.albumId === album.id);
-    if (firstTrack) {
-      playTrack(firstTrack);
-    }
+    navigation.navigate('AlbumDetail', { album });
   };
 
   const handleSessionPress = (session) => {
+    // Set queue to all sessions
+    const sessionQueue = SESSIONS.map(s => ({
+      ...s,
+      artist: 'Timed Session',
+      type: 'session',
+    }));
+    setPlayQueue(sessionQueue);
+    
     playTrack({
       ...session,
       artist: 'Timed Session',
       type: 'session',
-    });
+    }, sessionQueue);
   };
 
+  // Navigate to dedicated See All pages
   const handleSeeAllAlbums = () => {
-    navigation.navigate('Browse', { initialTab: 'music' });
+    navigation.navigate('NewReleases');
   };
 
   const handleSeeAllSessions = () => {
-    navigation.navigate('Browse', { initialTab: 'sessions' });
+    navigation.navigate('Sessions');
+  };
+
+  const handleStartTrial = () => {
+    setShowPremium(true);
   };
 
   return (
@@ -167,6 +178,41 @@ const HomeScreen = ({ navigation }) => {
             </ScrollView>
           </View>
 
+          {/* Premium Banner (if not premium) */}
+          {!isPremium && (
+            <TouchableOpacity 
+              style={styles.premiumBanner}
+              onPress={handleStartTrial}
+              activeOpacity={0.9}
+            >
+              <LinearGradient
+                colors={GRADIENTS.premium}
+                style={styles.premiumGradient}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+              >
+                <View style={styles.premiumContent}>
+                  <Icon name="star" size={24} color={COLORS.accent} />
+                  <View style={styles.premiumTextContainer}>
+                    <Text style={styles.premiumTitle}>Glacier Premium</Text>
+                    <Text style={styles.premiumSubtitle}>Unlimited downloads & ad-free</Text>
+                  </View>
+                </View>
+                <TouchableOpacity 
+                  style={styles.premiumButton}
+                  onPress={handleStartTrial}
+                >
+                  <LinearGradient
+                    colors={GRADIENTS.button}
+                    style={styles.premiumButtonGradient}
+                  >
+                    <Text style={styles.premiumButtonText}>Try Free</Text>
+                  </LinearGradient>
+                </TouchableOpacity>
+              </LinearGradient>
+            </TouchableOpacity>
+          )}
+
           {/* Popular Tracks */}
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Popular Tracks</Text>
@@ -185,6 +231,12 @@ const HomeScreen = ({ navigation }) => {
           <View style={styles.bottomPadding} />
         </ScrollView>
       </SafeAreaView>
+
+      {/* Premium Modal */}
+      <PremiumModal 
+        visible={showPremium} 
+        onClose={() => setShowPremium(false)} 
+      />
     </GradientBackground>
   );
 };
@@ -295,6 +347,56 @@ const styles = StyleSheet.create({
   tracksList: {
     paddingHorizontal: SIZES.paddingXXL,
   },
+  
+  // Premium Banner
+  premiumBanner: {
+    marginHorizontal: SIZES.paddingXXL,
+    marginBottom: SIZES.padding3XL,
+    borderRadius: SIZES.radiusXL,
+    overflow: 'hidden',
+  },
+  premiumGradient: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: SIZES.paddingLG,
+    borderWidth: 1,
+    borderColor: COLORS.accentBorder,
+    borderRadius: SIZES.radiusXL,
+  },
+  premiumContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SIZES.paddingMD,
+    flex: 1,
+  },
+  premiumTextContainer: {
+    flex: 1,
+  },
+  premiumTitle: {
+    fontSize: SIZES.fontMD,
+    fontWeight: '600',
+    color: COLORS.accent,
+  },
+  premiumSubtitle: {
+    fontSize: SIZES.fontSM,
+    color: COLORS.textMuted,
+    marginTop: 2,
+  },
+  premiumButton: {
+    borderRadius: SIZES.radiusLG,
+    overflow: 'hidden',
+  },
+  premiumButtonGradient: {
+    paddingVertical: SIZES.paddingSM + 2,
+    paddingHorizontal: SIZES.paddingLG,
+  },
+  premiumButtonText: {
+    fontSize: SIZES.fontSM,
+    fontWeight: '600',
+    color: COLORS.white,
+  },
+  
   bottomPadding: {
     height: 20,
   },

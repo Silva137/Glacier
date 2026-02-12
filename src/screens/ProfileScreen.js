@@ -6,6 +6,7 @@ import {
   TouchableOpacity,
   StyleSheet,
   StatusBar,
+  Pressable,
   Alert,
 } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
@@ -16,38 +17,58 @@ import { usePlayer } from '../hooks/usePlayer';
 import { GradientBackground } from '../components';
 import SleepTimerModal from './modals/SleepTimerModal';
 import PremiumModal from './modals/PremiumModal';
+import PremiumInfoModal from './modals/PremiumInfoModal';
 import DownloadQualityModal from './modals/DownloadQualityModal';
 import NotificationsModal from './modals/NotificationsModal';
-import SignInModal from './modals/SignInModal';
 import PrivacyModal from './modals/PrivacyModal';
 import HelpSupportModal from './modals/HelpSupportModal';
+import SignInModal from './modals/SignInModal';
 
 const ProfileScreen = ({ navigation }) => {
-  const { isPremium, deactivatePremium, sleepTimerActive, sleepTimer, downloads } = usePlayer();
+  const { isPremium, activatePremium, deactivatePremium, sleepTimerActive, sleepTimer } = usePlayer();
   const [showSleepTimer, setShowSleepTimer] = useState(false);
   const [showPremium, setShowPremium] = useState(false);
+  const [showPremiumInfo, setShowPremiumInfo] = useState(false);
   const [showDownloadQuality, setShowDownloadQuality] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
-  const [showSignIn, setShowSignIn] = useState(false);
   const [showPrivacy, setShowPrivacy] = useState(false);
-  const [showHelpSupport, setShowHelpSupport] = useState(false);
+  const [showHelp, setShowHelp] = useState(false);
+  const [showSignIn, setShowSignIn] = useState(false);
 
-  const handleRestoreToFree = () => {
+  const handleManageSubscription = () => {
     Alert.alert(
-      'Restore to Free',
-      'Are you sure you want to cancel Premium? Your downloads over the free limit (3) will be locked.',
+      'Manage Subscription',
+      'What would you like to do?',
       [
-        { text: 'Cancel', style: 'cancel' },
-        { 
-          text: 'Restore to Free', 
+        {
+          text: 'Cancel Subscription',
           style: 'destructive',
           onPress: () => {
-            deactivatePremium();
-            Alert.alert('Done', 'You are now on the free plan.');
+            Alert.alert(
+              'Cancel Premium?',
+              'Are you sure you want to cancel your premium subscription? You will lose access to unlimited downloads and ad-free listening.',
+              [
+                { text: 'Keep Premium', style: 'cancel' },
+                { 
+                  text: 'Cancel Premium', 
+                  style: 'destructive',
+                  onPress: () => {
+                    deactivatePremium();
+                    Alert.alert('Subscription Cancelled', 'You have been switched to the free plan.');
+                  }
+                },
+              ]
+            );
           }
         },
+        { text: 'View Benefits', onPress: () => setShowPremiumInfo(true) },
+        { text: 'Close', style: 'cancel' },
       ]
     );
+  };
+
+  const handleSignIn = () => {
+    setShowSignIn(true);
   };
 
   const settingsItems = [
@@ -55,7 +76,7 @@ const ProfileScreen = ({ navigation }) => {
     { icon: 'cloud-download-outline', label: 'Download Quality', onPress: () => setShowDownloadQuality(true) },
     { icon: 'notifications-outline', label: 'Notifications', onPress: () => setShowNotifications(true) },
     { icon: 'shield-outline', label: 'Privacy', onPress: () => setShowPrivacy(true) },
-    { icon: 'help-circle-outline', label: 'Help & Support', onPress: () => setShowHelpSupport(true) },
+    { icon: 'help-circle-outline', label: 'Help & Support', onPress: () => setShowHelp(true) },
   ];
 
   return (
@@ -87,7 +108,8 @@ const ProfileScreen = ({ navigation }) => {
             </View>
             <TouchableOpacity 
               style={styles.signInButton}
-              onPress={() => setShowSignIn(true)}
+              onPress={handleSignIn}
+              activeOpacity={0.7}
             >
               <Text style={styles.signInText}>Sign In</Text>
             </TouchableOpacity>
@@ -95,25 +117,34 @@ const ProfileScreen = ({ navigation }) => {
 
           {/* Premium Card */}
           {!isPremium ? (
-            <TouchableOpacity 
-              style={styles.premiumCard}
-              onPress={() => setShowPremium(true)}
-              activeOpacity={0.9}
-            >
+            <View style={styles.premiumCard}>
               <LinearGradient
                 colors={GRADIENTS.premium}
                 style={styles.premiumGradient}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 1 }}
               >
-                <View style={styles.premiumHeader}>
-                  <Icon name="star" size={24} color={COLORS.accent} />
-                  <Text style={styles.premiumTitle}>Glacier Premium</Text>
-                </View>
-                <Text style={styles.premiumDescription}>
-                  Ad-free, unlimited downloads for €1.99/month
-                </Text>
-                <TouchableOpacity style={styles.premiumButton}>
+                <TouchableOpacity 
+                  style={styles.premiumContent}
+                  onPress={() => setShowPremium(true)}
+                  activeOpacity={0.8}
+                >
+                  <View style={styles.premiumHeader}>
+                    <Icon name="star" size={24} color={COLORS.accent} />
+                    <Text style={styles.premiumTitle}>Glacier Premium</Text>
+                  </View>
+                  <Text style={styles.premiumDescription}>
+                    Ad-free, unlimited downloads for €1.99/month
+                  </Text>
+                </TouchableOpacity>
+                
+                <Pressable 
+                  style={({ pressed }) => [
+                    styles.premiumButton,
+                    pressed && styles.premiumButtonPressed
+                  ]}
+                  onPress={() => setShowPremium(true)}
+                >
                   <LinearGradient
                     colors={GRADIENTS.button}
                     style={styles.premiumButtonGradient}
@@ -122,25 +153,28 @@ const ProfileScreen = ({ navigation }) => {
                   >
                     <Text style={styles.premiumButtonText}>Start Free Trial</Text>
                   </LinearGradient>
-                </TouchableOpacity>
+                </Pressable>
               </LinearGradient>
-            </TouchableOpacity>
+            </View>
           ) : (
             <View style={styles.premiumActiveContainer}>
               <View style={styles.premiumActiveCard}>
                 <Icon name="star" size={24} color={COLORS.accent} />
                 <View style={styles.premiumActiveInfo}>
                   <Text style={styles.premiumActiveText}>Premium Active</Text>
-                  <Text style={styles.premiumActiveSubtext}>
-                    {downloads.length} tracks downloaded
-                  </Text>
+                  <Text style={styles.premiumActiveSubtext}>Unlimited downloads & ad-free</Text>
                 </View>
               </View>
+              
+              {/* Manage Subscription Button */}
               <TouchableOpacity 
-                style={styles.restoreFreeButton}
-                onPress={handleRestoreToFree}
+                style={styles.manageButton}
+                onPress={handleManageSubscription}
+                activeOpacity={0.7}
               >
-                <Text style={styles.restoreFreeText}>Restore to Free (Testing)</Text>
+                <Icon name="settings-outline" size={18} color={COLORS.textMuted} />
+                <Text style={styles.manageButtonText}>Manage Subscription</Text>
+                <Icon name="chevron-forward" size={18} color={COLORS.textDim} />
               </TouchableOpacity>
             </View>
           )}
@@ -182,11 +216,12 @@ const ProfileScreen = ({ navigation }) => {
       {/* Modals */}
       <SleepTimerModal visible={showSleepTimer} onClose={() => setShowSleepTimer(false)} />
       <PremiumModal visible={showPremium} onClose={() => setShowPremium(false)} />
+      <PremiumInfoModal visible={showPremiumInfo} onClose={() => setShowPremiumInfo(false)} />
       <DownloadQualityModal visible={showDownloadQuality} onClose={() => setShowDownloadQuality(false)} />
       <NotificationsModal visible={showNotifications} onClose={() => setShowNotifications(false)} />
-      <SignInModal visible={showSignIn} onClose={() => setShowSignIn(false)} />
       <PrivacyModal visible={showPrivacy} onClose={() => setShowPrivacy(false)} />
-      <HelpSupportModal visible={showHelpSupport} onClose={() => setShowHelpSupport(false)} />
+      <HelpSupportModal visible={showHelp} onClose={() => setShowHelp(false)} />
+      <SignInModal visible={showSignIn} onClose={() => setShowSignIn(false)} />
     </GradientBackground>
   );
 };
@@ -235,11 +270,26 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: COLORS.accentBorder,
   },
+  premiumContent: {
+    marginBottom: SIZES.paddingLG,
+  },
   premiumHeader: { flexDirection: 'row', alignItems: 'center', gap: SIZES.paddingMD, marginBottom: SIZES.paddingMD },
   premiumTitle: { fontSize: SIZES.fontXL, fontWeight: '600', color: COLORS.accent },
-  premiumDescription: { fontSize: SIZES.fontMD, color: COLORS.textSecondary, marginBottom: SIZES.paddingLG },
-  premiumButton: { alignSelf: 'flex-start' },
-  premiumButtonGradient: { borderRadius: SIZES.radiusXXL, paddingHorizontal: SIZES.paddingXXL, paddingVertical: SIZES.paddingMD },
+  premiumDescription: { fontSize: SIZES.fontMD, color: COLORS.textSecondary },
+  premiumButton: { 
+    alignSelf: 'flex-start',
+    borderRadius: SIZES.radiusXXL,
+    overflow: 'hidden',
+  },
+  premiumButtonPressed: {
+    opacity: 0.8,
+    transform: [{ scale: 0.98 }],
+  },
+  premiumButtonGradient: { 
+    borderRadius: SIZES.radiusXXL, 
+    paddingHorizontal: SIZES.paddingXXL, 
+    paddingVertical: SIZES.paddingMD + 2,
+  },
   premiumButtonText: { fontSize: SIZES.fontMD + 1, fontWeight: '600', color: COLORS.white },
   
   // Premium Active
@@ -254,6 +304,8 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: COLORS.accentBorder,
     borderRadius: SIZES.radiusLG,
+    borderBottomLeftRadius: 0,
+    borderBottomRightRadius: 0,
     padding: SIZES.paddingXL,
     gap: SIZES.paddingMD,
   },
@@ -262,15 +314,23 @@ const styles = StyleSheet.create({
   },
   premiumActiveText: { fontSize: SIZES.fontLG, fontWeight: '600', color: COLORS.accent },
   premiumActiveSubtext: { fontSize: SIZES.fontSM, color: COLORS.textMuted, marginTop: 2 },
-  restoreFreeButton: {
+  manageButton: {
+    flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: SIZES.paddingMD,
-    marginTop: SIZES.paddingSM,
+    backgroundColor: COLORS.surface,
+    borderWidth: 1,
+    borderColor: COLORS.surfaceBorder,
+    borderTopWidth: 0,
+    borderRadius: SIZES.radiusLG,
+    borderTopLeftRadius: 0,
+    borderTopRightRadius: 0,
+    padding: SIZES.paddingLG,
+    gap: SIZES.paddingSM,
   },
-  restoreFreeText: {
-    fontSize: SIZES.fontSM,
-    color: COLORS.textDim,
-    textDecorationLine: 'underline',
+  manageButtonText: {
+    flex: 1,
+    fontSize: SIZES.fontMD,
+    color: COLORS.textMuted,
   },
   
   // Settings

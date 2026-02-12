@@ -22,15 +22,19 @@ const FEATURES = [
 ];
 
 const PremiumModal = ({ visible, onClose }) => {
-  const { activatePremium, isPremium } = usePlayer();
+  const { activatePremium } = usePlayer();
 
   const handleStartTrial = () => {
     activatePremium();
-    Alert.alert(
-      '🎉 Welcome to Premium!',
-      'Your 7-day free trial has started. Enjoy unlimited downloads and ad-free listening!',
-      [{ text: 'Awesome!', onPress: onClose }]
-    );
+    onClose();
+    // Show alert after closing modal
+    setTimeout(() => {
+      Alert.alert(
+        '🎉 Welcome to Premium!',
+        'Your 7-day free trial has started. Enjoy unlimited downloads and ad-free listening!',
+        [{ text: 'Awesome!' }]
+      );
+    }, 300);
   };
 
   return (
@@ -52,7 +56,7 @@ const PremiumModal = ({ visible, onClose }) => {
             <TouchableOpacity 
               style={styles.closeButton}
               onPress={onClose}
-              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
             >
               <Icon name="close" size={24} color={COLORS.textMuted} />
             </TouchableOpacity>
@@ -87,11 +91,13 @@ const PremiumModal = ({ visible, onClose }) => {
               <Text style={styles.priceUnit}>/month</Text>
             </View>
 
-            {/* CTA */}
-            <TouchableOpacity 
-              style={styles.ctaButton}
+            {/* CTA Button - Using Pressable for better touch handling */}
+            <Pressable 
+              style={({ pressed }) => [
+                styles.ctaButton,
+                pressed && styles.ctaButtonPressed
+              ]}
               onPress={handleStartTrial}
-              activeOpacity={0.8}
             >
               <LinearGradient
                 colors={GRADIENTS.button}
@@ -101,7 +107,7 @@ const PremiumModal = ({ visible, onClose }) => {
               >
                 <Text style={styles.ctaText}>Start 7-Day Free Trial</Text>
               </LinearGradient>
-            </TouchableOpacity>
+            </Pressable>
 
             <Text style={styles.termsText}>
               Cancel anytime. No commitment required.
@@ -111,6 +117,7 @@ const PremiumModal = ({ visible, onClose }) => {
             <TouchableOpacity 
               onPress={onClose}
               style={styles.dismissButton}
+              hitSlop={{ top: 10, bottom: 10, left: 20, right: 20 }}
             >
               <Text style={styles.dismissText}>Maybe later</Text>
             </TouchableOpacity>
@@ -137,6 +144,7 @@ const styles = StyleSheet.create({
     maxWidth: 360,
     borderRadius: SIZES.radiusXXL,
     overflow: 'hidden',
+    elevation: 10,
   },
   content: {
     padding: SIZES.padding3XL,
@@ -146,7 +154,8 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: SIZES.paddingLG,
     right: SIZES.paddingLG,
-    zIndex: 1,
+    zIndex: 10,
+    padding: 5,
   },
   iconContainer: {
     marginBottom: SIZES.paddingXXL,
@@ -206,6 +215,10 @@ const styles = StyleSheet.create({
     alignSelf: 'stretch',
     borderRadius: SIZES.radiusXXL,
     overflow: 'hidden',
+  },
+  ctaButtonPressed: {
+    opacity: 0.8,
+    transform: [{ scale: 0.98 }],
   },
   ctaGradient: {
     paddingVertical: SIZES.paddingLG + 2,

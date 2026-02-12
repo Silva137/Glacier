@@ -17,8 +17,6 @@ import { usePlayer } from '../hooks/usePlayer';
 import {
   GradientBackground,
   TabButton,
-  AlbumCard,
-  SessionCard,
   TrackItem,
 } from '../components';
 
@@ -28,7 +26,7 @@ const BrowseScreen = ({ navigation, route }) => {
   const initialTab = route?.params?.initialTab || 'music';
   const [activeTab, setActiveTab] = useState(initialTab);
   const [searchQuery, setSearchQuery] = useState('');
-  const { playTrack, userPlaylists, createPlaylist } = usePlayer();
+  const { playTrack, userPlaylists } = usePlayer();
 
   // Filter data based on search query
   const filteredData = useMemo(() => {
@@ -71,25 +69,24 @@ const BrowseScreen = ({ navigation, route }) => {
     };
   }, [searchQuery, userPlaylists]);
 
+  // Navigate to album detail
   const handleAlbumPress = (album) => {
-    const firstTrack = TRACKS.find(t => t.albumId === album.id);
-    if (firstTrack) playTrack(firstTrack);
+    navigation.navigate('AlbumDetail', { album });
   };
 
+  // Sessions play directly (they're single items)
   const handleSessionPress = (session) => {
     playTrack({ ...session, artist: 'Session', type: 'session' });
   };
 
+  // Navigate to playlist detail
   const handlePlaylistPress = (playlist) => {
-    if (playlist.trackList) {
-      playTrack(playlist.trackList[0]);
-    } else {
-      playTrack({ ...playlist, artist: `${playlist.tracks} tracks`, type: 'playlist' });
-    }
+    navigation.navigate('PlaylistDetail', { playlist });
   };
 
+  // Navigate to podcast detail
   const handlePodcastPress = (podcast) => {
-    playTrack({ ...podcast, artist: `${podcast.episodes} episodes`, type: 'podcast' });
+    navigation.navigate('PodcastDetail', { podcast });
   };
 
   const handleCreatePlaylist = () => {
@@ -121,7 +118,6 @@ const BrowseScreen = ({ navigation, route }) => {
 
     return (
       <>
-        {/* Tracks */}
         {filteredData.tracks.length > 0 && (
           <>
             <Text style={styles.subsectionTitle}>Tracks ({filteredData.tracks.length})</Text>
@@ -136,7 +132,6 @@ const BrowseScreen = ({ navigation, route }) => {
           </>
         )}
 
-        {/* Albums */}
         {filteredData.albums.length > 0 && (
           <>
             <Text style={[styles.subsectionTitle, { marginTop: SIZES.paddingXXL }]}>
@@ -160,7 +155,6 @@ const BrowseScreen = ({ navigation, route }) => {
           </>
         )}
 
-        {/* Sessions */}
         {filteredData.sessions.length > 0 && (
           <>
             <Text style={[styles.subsectionTitle, { marginTop: SIZES.paddingXXL }]}>
@@ -285,6 +279,7 @@ const BrowseScreen = ({ navigation, route }) => {
                 <Text style={styles.playlistTitle}>{playlist.title}</Text>
                 <Text style={styles.playlistSubtitle}>{playlist.tracks} tracks</Text>
               </View>
+              <Icon name="chevron-forward" size={20} color={COLORS.textDim} />
             </TouchableOpacity>
           ))}
         </>
@@ -336,6 +331,7 @@ const BrowseScreen = ({ navigation, route }) => {
             <Text style={styles.podcastEpisodes}>{podcast.episodes} episodes</Text>
             <Text style={styles.podcastDescription}>{podcast.description}</Text>
           </View>
+          <Icon name="chevron-forward" size={20} color={COLORS.textDim} />
         </TouchableOpacity>
       ))}
     </>
@@ -352,12 +348,10 @@ const BrowseScreen = ({ navigation, route }) => {
           contentContainerStyle={styles.scrollContent}
           keyboardShouldPersistTaps="handled"
         >
-          {/* Header */}
           <View style={styles.header}>
             <Text style={styles.title}>Browse</Text>
           </View>
 
-          {/* Search Bar */}
           <View style={styles.searchContainer}>
             <Icon name="search" size={20} color={COLORS.textMuted} />
             <TextInput
@@ -376,7 +370,6 @@ const BrowseScreen = ({ navigation, route }) => {
             )}
           </View>
 
-          {/* Tabs - hide when searching */}
           {!isSearching && (
             <ScrollView
               horizontal
@@ -394,7 +387,6 @@ const BrowseScreen = ({ navigation, route }) => {
             </ScrollView>
           )}
 
-          {/* Content */}
           <View style={styles.content}>
             {isSearching ? (
               renderSearchResults()
@@ -416,22 +408,10 @@ const BrowseScreen = ({ navigation, route }) => {
 };
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  scrollContent: {
-    paddingBottom: SIZES.tabBarHeight + SIZES.miniPlayerHeight + 20,
-  },
-  header: {
-    paddingHorizontal: SIZES.paddingXXL,
-    paddingTop: SIZES.paddingLG,
-    paddingBottom: SIZES.paddingLG,
-  },
-  title: {
-    fontSize: SIZES.font5XL,
-    fontWeight: '300',
-    color: COLORS.textPrimary,
-  },
+  container: { flex: 1 },
+  scrollContent: { paddingBottom: SIZES.tabBarHeight + SIZES.miniPlayerHeight + 20 },
+  header: { paddingHorizontal: SIZES.paddingXXL, paddingTop: SIZES.paddingLG, paddingBottom: SIZES.paddingLG },
+  title: { fontSize: SIZES.font5XL, fontWeight: '300', color: COLORS.textPrimary },
   searchContainer: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -445,252 +425,58 @@ const styles = StyleSheet.create({
     marginBottom: SIZES.paddingXL,
     gap: SIZES.paddingMD,
   },
-  searchInput: {
-    flex: 1,
-    fontSize: SIZES.fontMD + 1,
-    color: COLORS.textPrimary,
-  },
-  tabsContainer: {
-    paddingHorizontal: SIZES.paddingXXL,
-    paddingBottom: SIZES.paddingXXL,
-  },
-  content: {
-    paddingHorizontal: SIZES.paddingXXL,
-  },
-  subsectionTitle: {
-    fontSize: SIZES.font2XL,
-    fontWeight: '300',
-    color: COLORS.textPrimary,
-    marginBottom: SIZES.paddingLG,
-  },
+  searchInput: { flex: 1, fontSize: SIZES.fontMD + 1, color: COLORS.textPrimary },
+  tabsContainer: { paddingHorizontal: SIZES.paddingXXL, paddingBottom: SIZES.paddingXXL },
+  content: { paddingHorizontal: SIZES.paddingXXL },
+  subsectionTitle: { fontSize: SIZES.font2XL, fontWeight: '300', color: COLORS.textPrimary, marginBottom: SIZES.paddingLG },
   
-  // No results
-  noResults: {
-    alignItems: 'center',
-    paddingVertical: 60,
-  },
-  noResultsText: {
-    fontSize: SIZES.fontLG,
-    color: COLORS.textMuted,
-    marginTop: SIZES.paddingLG,
-  },
-  noResultsSubtext: {
-    fontSize: SIZES.fontMD,
-    color: COLORS.textDim,
-    marginTop: SIZES.paddingSM,
-  },
+  noResults: { alignItems: 'center', paddingVertical: 60 },
+  noResultsText: { fontSize: SIZES.fontLG, color: COLORS.textMuted, marginTop: SIZES.paddingLG },
+  noResultsSubtext: { fontSize: SIZES.fontMD, color: COLORS.textDim, marginTop: SIZES.paddingSM },
   
-  // Search results
-  searchAlbumItem: {
-    width: 120,
-    marginRight: SIZES.paddingMD,
-  },
-  searchAlbumArt: {
-    width: 120,
-    height: 120,
-    borderRadius: SIZES.radiusMD,
-    marginBottom: SIZES.paddingSM,
-  },
-  searchAlbumTitle: {
-    fontSize: SIZES.fontMD,
-    color: COLORS.textPrimary,
-  },
-  searchSessionItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: SIZES.paddingMD,
-    gap: SIZES.paddingMD,
-  },
-  searchSessionArt: {
-    width: 50,
-    height: 50,
-    borderRadius: SIZES.radiusSM,
-  },
-  searchSessionInfo: {
-    flex: 1,
-  },
-  searchSessionTitle: {
-    fontSize: SIZES.fontMD,
-    color: COLORS.textPrimary,
-    fontWeight: '600',
-  },
-  searchSessionDuration: {
-    fontSize: SIZES.fontSM,
-    color: COLORS.textMuted,
-  },
+  searchAlbumItem: { width: 120, marginRight: SIZES.paddingMD },
+  searchAlbumArt: { width: 120, height: 120, borderRadius: SIZES.radiusMD, marginBottom: SIZES.paddingSM },
+  searchAlbumTitle: { fontSize: SIZES.fontMD, color: COLORS.textPrimary },
+  searchSessionItem: { flexDirection: 'row', alignItems: 'center', paddingVertical: SIZES.paddingMD, gap: SIZES.paddingMD },
+  searchSessionArt: { width: 50, height: 50, borderRadius: SIZES.radiusSM },
+  searchSessionInfo: { flex: 1 },
+  searchSessionTitle: { fontSize: SIZES.fontMD, color: COLORS.textPrimary, fontWeight: '600' },
+  searchSessionDuration: { fontSize: SIZES.fontSM, color: COLORS.textMuted },
   
-  // Album Grid
-  albumsGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'space-between',
-  },
-  albumGridItem: {
-    width: '48%',
-    marginBottom: SIZES.paddingLG,
-  },
-  albumGridArt: {
-    width: '100%',
-    aspectRatio: 1,
-    borderRadius: SIZES.radiusLG,
-    marginBottom: SIZES.paddingSM + 2,
-  },
-  albumGridTitle: {
-    fontSize: SIZES.fontMD,
-    fontWeight: '600',
-    color: COLORS.textPrimary,
-    marginBottom: 2,
-  },
-  albumGridSubtitle: {
-    fontSize: SIZES.fontSM,
-    color: COLORS.textMuted,
-  },
-  // Sessions Grid
-  sessionsGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'space-between',
-  },
-  sessionGridItem: {
-    width: '48%',
-    marginBottom: SIZES.paddingLG,
-  },
-  sessionGridArt: {
-    width: '100%',
-    aspectRatio: 1,
-    borderRadius: SIZES.radiusLG,
-    marginBottom: SIZES.paddingSM + 2,
-    justifyContent: 'flex-end',
-    padding: SIZES.paddingMD,
-  },
-  durationBadge: {
-    alignSelf: 'flex-start',
-    backgroundColor: 'rgba(0, 0, 0, 0.3)',
-    paddingHorizontal: SIZES.paddingSM + 2,
-    paddingVertical: SIZES.paddingXS,
-    borderRadius: SIZES.radiusSM + 2,
-  },
-  durationText: {
-    fontSize: SIZES.fontXS + 1,
-    color: 'rgba(255, 255, 255, 0.9)',
-  },
-  sessionGridTitle: {
-    fontSize: SIZES.fontMD,
-    fontWeight: '600',
-    color: COLORS.textPrimary,
-    marginBottom: 2,
-  },
-  sessionGridSubtitle: {
-    fontSize: SIZES.fontSM,
-    color: COLORS.textMuted,
-  },
-  // Playlists
-  createPlaylistButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: COLORS.accentDim,
-    borderRadius: SIZES.radiusLG,
-    borderWidth: 1,
-    borderColor: COLORS.accentBorder,
-    borderStyle: 'dashed',
-    paddingVertical: SIZES.paddingLG,
-    marginBottom: SIZES.paddingXXL,
-    gap: SIZES.paddingSM + 2,
-  },
-  createPlaylistText: {
-    fontSize: SIZES.fontMD + 1,
-    fontWeight: '600',
-    color: COLORS.accent,
-  },
-  playlistItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: SIZES.paddingMD,
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255, 255, 255, 0.05)',
-    gap: SIZES.paddingMD,
-  },
-  playlistArt: {
-    width: 56,
-    height: 56,
-    borderRadius: SIZES.radiusMD,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  playlistInfo: {
-    flex: 1,
-  },
-  playlistTitle: {
-    fontSize: SIZES.fontMD + 1,
-    fontWeight: '600',
-    color: COLORS.textPrimary,
-  },
-  playlistSubtitle: {
-    fontSize: SIZES.fontSM,
-    color: COLORS.textMuted,
-    marginTop: 2,
-  },
-  playlistsGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'space-between',
-  },
-  playlistGridItem: {
-    width: '48%',
-    marginBottom: SIZES.paddingLG,
-  },
-  playlistGridArt: {
-    width: '100%',
-    aspectRatio: 1,
-    borderRadius: SIZES.radiusLG,
-    marginBottom: SIZES.paddingSM + 2,
-  },
-  playlistGridTitle: {
-    fontSize: SIZES.fontMD,
-    fontWeight: '600',
-    color: COLORS.textPrimary,
-    marginBottom: 2,
-  },
-  playlistGridSubtitle: {
-    fontSize: SIZES.fontSM,
-    color: COLORS.textMuted,
-  },
-  // Podcasts
-  podcastItem: {
-    flexDirection: 'row',
-    paddingVertical: SIZES.paddingMD,
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255, 255, 255, 0.05)',
-    gap: SIZES.paddingLG,
-  },
-  podcastArt: {
-    width: 70,
-    height: 70,
-    borderRadius: SIZES.radiusMD,
-  },
-  podcastInfo: {
-    flex: 1,
-    justifyContent: 'center',
-  },
-  podcastTitle: {
-    fontSize: SIZES.fontLG,
-    fontWeight: '600',
-    color: COLORS.textPrimary,
-  },
-  podcastEpisodes: {
-    fontSize: SIZES.fontSM,
-    color: COLORS.textMuted,
-    marginTop: SIZES.paddingXS,
-  },
-  podcastDescription: {
-    fontSize: SIZES.fontSM,
-    color: COLORS.textDim,
-    marginTop: SIZES.paddingXS,
-  },
-  bottomPadding: {
-    height: 20,
-  },
+  albumsGrid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between' },
+  albumGridItem: { width: '48%', marginBottom: SIZES.paddingLG },
+  albumGridArt: { width: '100%', aspectRatio: 1, borderRadius: SIZES.radiusLG, marginBottom: SIZES.paddingSM + 2 },
+  albumGridTitle: { fontSize: SIZES.fontMD, fontWeight: '600', color: COLORS.textPrimary, marginBottom: 2 },
+  albumGridSubtitle: { fontSize: SIZES.fontSM, color: COLORS.textMuted },
+  
+  sessionsGrid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between' },
+  sessionGridItem: { width: '48%', marginBottom: SIZES.paddingLG },
+  sessionGridArt: { width: '100%', aspectRatio: 1, borderRadius: SIZES.radiusLG, marginBottom: SIZES.paddingSM + 2, justifyContent: 'flex-end', padding: SIZES.paddingMD },
+  durationBadge: { alignSelf: 'flex-start', backgroundColor: 'rgba(0, 0, 0, 0.3)', paddingHorizontal: SIZES.paddingSM + 2, paddingVertical: SIZES.paddingXS, borderRadius: SIZES.radiusSM + 2 },
+  durationText: { fontSize: SIZES.fontXS + 1, color: 'rgba(255, 255, 255, 0.9)' },
+  sessionGridTitle: { fontSize: SIZES.fontMD, fontWeight: '600', color: COLORS.textPrimary, marginBottom: 2 },
+  sessionGridSubtitle: { fontSize: SIZES.fontSM, color: COLORS.textMuted },
+  
+  createPlaylistButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: COLORS.accentDim, borderRadius: SIZES.radiusLG, borderWidth: 1, borderColor: COLORS.accentBorder, borderStyle: 'dashed', paddingVertical: SIZES.paddingLG, marginBottom: SIZES.paddingXXL, gap: SIZES.paddingSM + 2 },
+  createPlaylistText: { fontSize: SIZES.fontMD + 1, fontWeight: '600', color: COLORS.accent },
+  playlistItem: { flexDirection: 'row', alignItems: 'center', paddingVertical: SIZES.paddingMD, borderBottomWidth: 1, borderBottomColor: 'rgba(255, 255, 255, 0.05)', gap: SIZES.paddingMD },
+  playlistArt: { width: 56, height: 56, borderRadius: SIZES.radiusMD, alignItems: 'center', justifyContent: 'center' },
+  playlistInfo: { flex: 1 },
+  playlistTitle: { fontSize: SIZES.fontMD + 1, fontWeight: '600', color: COLORS.textPrimary },
+  playlistSubtitle: { fontSize: SIZES.fontSM, color: COLORS.textMuted, marginTop: 2 },
+  playlistsGrid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between' },
+  playlistGridItem: { width: '48%', marginBottom: SIZES.paddingLG },
+  playlistGridArt: { width: '100%', aspectRatio: 1, borderRadius: SIZES.radiusLG, marginBottom: SIZES.paddingSM + 2 },
+  playlistGridTitle: { fontSize: SIZES.fontMD, fontWeight: '600', color: COLORS.textPrimary, marginBottom: 2 },
+  playlistGridSubtitle: { fontSize: SIZES.fontSM, color: COLORS.textMuted },
+  
+  podcastItem: { flexDirection: 'row', paddingVertical: SIZES.paddingMD, borderBottomWidth: 1, borderBottomColor: 'rgba(255, 255, 255, 0.05)', gap: SIZES.paddingLG, alignItems: 'center' },
+  podcastArt: { width: 70, height: 70, borderRadius: SIZES.radiusMD },
+  podcastInfo: { flex: 1, justifyContent: 'center' },
+  podcastTitle: { fontSize: SIZES.fontLG, fontWeight: '600', color: COLORS.textPrimary },
+  podcastEpisodes: { fontSize: SIZES.fontSM, color: COLORS.textMuted, marginTop: SIZES.paddingXS },
+  podcastDescription: { fontSize: SIZES.fontSM, color: COLORS.textDim, marginTop: SIZES.paddingXS },
+  bottomPadding: { height: 20 },
 });
 
 export default BrowseScreen;

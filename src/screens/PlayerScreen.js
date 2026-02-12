@@ -11,6 +11,7 @@ import {
   Alert,
   Share,
 } from 'react-native';
+import Slider from '@react-native-community/slider';
 import LinearGradient from 'react-native-linear-gradient';
 import Icon from 'react-native-vector-icons/Ionicons';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -21,7 +22,6 @@ import SleepTimerModal from './modals/SleepTimerModal';
 import PremiumModal from './modals/PremiumModal';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
-const SCREEN_HEIGHT = Dimensions.get('window').height;
 const SWIPE_THRESHOLD_X = 80;
 const SWIPE_THRESHOLD_Y = 120;
 
@@ -29,7 +29,9 @@ const PlayerScreen = ({ navigation }) => {
   const { 
     currentTrack, 
     isPlaying, 
-    progress, 
+    progress,
+    currentTime,
+    duration,
     togglePlayPause,
     toggleFavorite,
     isFavorite,
@@ -39,43 +41,51 @@ const PlayerScreen = ({ navigation }) => {
     sleepTimer,
     playNext,
     playPrevious,
+    startSeeking,
+    seekTo,
+    repeatMode,
+    toggleRepeat,
+    shuffleEnabled,
+    toggleShuffle,
   } = usePlayer();
 
   const [showSleepTimer, setShowSleepTimer] = useState(false);
   const [showPremium, setShowPremium] = useState(false);
+  const [sliderValue, setSliderValue] = useState(0);
+  const [isSliding, setIsSliding] = useState(false);
+
+  // Sync slider with progress when not sliding
+  useEffect(() => {
+    if (!isSliding) {
+      setSliderValue(progress);
+    }
+  }, [progress, isSliding]);
 
   // Swipe animations
   const translateX = useRef(new Animated.Value(0)).current;
   const translateY = useRef(new Animated.Value(0)).current;
   const opacity = useRef(new Animated.Value(1)).current;
 
-  // Pan responder for swipe gestures (left/right for tracks, down to close)
   const panResponder = useRef(
     PanResponder.create({
       onStartShouldSetPanResponder: () => false,
       onMoveShouldSetPanResponder: (_, gestureState) => {
-        // Respond to swipes
         return Math.abs(gestureState.dx) > 15 || Math.abs(gestureState.dy) > 15;
       },
       onPanResponderMove: (_, gestureState) => {
-        // Horizontal swipe for track change
         if (Math.abs(gestureState.dx) > Math.abs(gestureState.dy)) {
           translateX.setValue(gestureState.dx);
           const newOpacity = Math.max(0.7, 1 - Math.abs(gestureState.dx) / (SCREEN_WIDTH / 2));
           opacity.setValue(newOpacity);
-        } 
-        // Vertical swipe down to close
-        else if (gestureState.dy > 0) {
+        } else if (gestureState.dy > 0) {
           translateY.setValue(gestureState.dy);
           const newOpacity = Math.max(0.5, 1 - gestureState.dy / SWIPE_THRESHOLD_Y);
           opacity.setValue(newOpacity);
         }
       },
       onPanResponderRelease: (_, gestureState) => {
-        // Horizontal swipe - change track
         if (Math.abs(gestureState.dx) > Math.abs(gestureState.dy)) {
           if (gestureState.dx > SWIPE_THRESHOLD_X) {
-            // Swipe right - previous track
             Animated.timing(translateX, {
               toValue: SCREEN_WIDTH,
               duration: 200,
@@ -91,7 +101,6 @@ const PlayerScreen = ({ navigation }) => {
               }).start();
             });
           } else if (gestureState.dx < -SWIPE_THRESHOLD_X) {
-            // Swipe left - next track
             Animated.timing(translateX, {
               toValue: -SCREEN_WIDTH,
               duration: 200,
@@ -107,7 +116,6 @@ const PlayerScreen = ({ navigation }) => {
               }).start();
             });
           } else {
-            // Snap back
             Animated.spring(translateX, {
               toValue: 0,
               useNativeDriver: true,
@@ -115,12 +123,9 @@ const PlayerScreen = ({ navigation }) => {
               friction: 10,
             }).start();
           }
-        }
-        // Vertical swipe down - close screen
-        else if (gestureState.dy > SWIPE_THRESHOLD_Y) {
+        } else if (gestureState.dy > SWIPE_THRESHOLD_Y) {
           navigation.goBack();
         } else {
-          // Snap back
           Animated.spring(translateY, {
             toValue: 0,
             useNativeDriver: true,
@@ -176,11 +181,29 @@ const PlayerScreen = ({ navigation }) => {
     );
   }
 
-  const formatTime = (percent) => {
-    const totalSeconds = Math.floor(percent * 0.045 * 60);
-    const mins = Math.floor(totalSeconds / 60);
-    const secs = totalSeconds % 60;
+  const formatTime = (seconds) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = Math.floor(seconds % 60);
     return `${mins}:${String(secs).padStart(2, '0')}`;
+  };
+
+  // Calculate display time based on slider position when sliding
+  const displayTime = isSliding 
+    ? Math.floor((sliderValue / 100) * duration) 
+    : currentTime;
+
+  const handleSliderStart = () => {
+    setIsSliding(true);
+    startSeeking(); // Pause progress updates in context
+  };
+
+  const handleSliderChange = (value) => {
+    setSliderValue(value);
+  };
+
+  const handleSliderComplete = (value) => {
+    seekTo(value); // This also sets isSeeking to false
+    setIsSliding(false);
   };
 
   const favorite = isFavorite(currentTrack);
@@ -198,36 +221,18 @@ const PlayerScreen = ({ navigation }) => {
       Alert.alert('Downloaded!', `"${currentTrack.title}" has been added to your downloads.`);
     } else if (result.reason === 'limit_reached') {
       setShowPremium(true);
-    } else if (result.reason === 'already_downloaded') {
-      Alert.alert('Already Downloaded', 'This track is already in your downloads.');
     }
   };
 
   const handleShare = async () => {
     try {
-      const result = await Share.share({
-        message: `🎵 Check out "${currentTrack.title}" by ${currentTrack.artist || 'Glacier'} on Glacier App!\n\nDownload Glacier for relaxing music and meditation sounds.`,
+      await Share.share({
+        message: `🎵 Check out "${currentTrack.title}" by ${currentTrack.artist || 'Glacier'} on Glacier App!`,
         title: `Share ${currentTrack.title}`,
       });
-      
-      if (result.action === Share.sharedAction) {
-        if (result.activityType) {
-          // Shared with activity type of result.activityType
-        } else {
-          // Shared
-        }
-      }
     } catch (error) {
       Alert.alert('Error', 'Unable to share at this moment.');
     }
-  };
-
-  const handlePrevious = () => {
-    if (playPrevious) playPrevious();
-  };
-
-  const handleNext = () => {
-    if (playNext) playNext();
   };
 
   return (
@@ -270,7 +275,6 @@ const PlayerScreen = ({ navigation }) => {
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 1 }}
             >
-              {/* Sound Waves */}
               {isPlaying && (
                 <View style={styles.soundWaves}>
                   {waveAnims.map((anim, i) => (
@@ -282,8 +286,6 @@ const PlayerScreen = ({ navigation }) => {
                 </View>
               )}
             </LinearGradient>
-            
-            {/* Swipe hint */}
             <Text style={styles.swipeHint}>← Swipe for next/previous →</Text>
           </View>
 
@@ -294,28 +296,46 @@ const PlayerScreen = ({ navigation }) => {
           </View>
         </Animated.View>
 
-        {/* Progress Bar */}
+        {/* Progress Slider */}
         <View style={styles.progressContainer}>
-          <View style={styles.progressTrack}>
-            <LinearGradient
-              colors={['#4a8a9a', '#7bc5a3']}
-              style={[styles.progressBar, { width: `${progress}%` }]}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 0 }}
-            />
-          </View>
+          <Slider
+            style={styles.slider}
+            minimumValue={0}
+            maximumValue={100}
+            value={sliderValue}
+            onSlidingStart={handleSliderStart}
+            onValueChange={handleSliderChange}
+            onSlidingComplete={handleSliderComplete}
+            minimumTrackTintColor={COLORS.accent}
+            maximumTrackTintColor={COLORS.progressTrack}
+            thumbTintColor={COLORS.accent}
+          />
           <View style={styles.progressTimes}>
-            <Text style={styles.progressTime}>{formatTime(progress)}</Text>
-            <Text style={styles.progressTime}>{currentTrack.duration || '4:32'}</Text>
+            <Text style={styles.progressTime}>{formatTime(displayTime)}</Text>
+            <Text style={styles.progressTime}>{formatTime(duration)}</Text>
           </View>
         </View>
 
         {/* Controls */}
         <View style={styles.controls}>
-          <TouchableOpacity style={styles.controlButton} onPress={handlePrevious}>
+          {/* Shuffle */}
+          <TouchableOpacity 
+            style={styles.secondaryControlButton} 
+            onPress={toggleShuffle}
+          >
+            <Icon 
+              name="shuffle" 
+              size={22} 
+              color={shuffleEnabled ? COLORS.accent : COLORS.textMuted} 
+            />
+          </TouchableOpacity>
+
+          {/* Previous */}
+          <TouchableOpacity style={styles.controlButton} onPress={playPrevious}>
             <Icon name="play-skip-back" size={32} color={COLORS.white} />
           </TouchableOpacity>
           
+          {/* Play/Pause */}
           <TouchableOpacity 
             style={styles.playButton}
             onPress={togglePlayPause}
@@ -336,8 +356,28 @@ const PlayerScreen = ({ navigation }) => {
             </LinearGradient>
           </TouchableOpacity>
           
-          <TouchableOpacity style={styles.controlButton} onPress={handleNext}>
+          {/* Next */}
+          <TouchableOpacity style={styles.controlButton} onPress={playNext}>
             <Icon name="play-skip-forward" size={32} color={COLORS.white} />
+          </TouchableOpacity>
+
+          {/* Repeat */}
+          <TouchableOpacity 
+            style={styles.secondaryControlButton} 
+            onPress={toggleRepeat}
+          >
+            <View>
+              <Icon 
+                name="repeat" 
+                size={22} 
+                color={repeatMode !== 'off' ? COLORS.accent : COLORS.textMuted} 
+              />
+              {repeatMode === 'one' && (
+                <View style={styles.repeatOneBadge}>
+                  <Text style={styles.repeatOneText}>1</Text>
+                </View>
+              )}
+            </View>
           </TouchableOpacity>
         </View>
 
@@ -379,13 +419,11 @@ const PlayerScreen = ({ navigation }) => {
         </View>
       </SafeAreaView>
 
-      {/* Sleep Timer Modal */}
       <SleepTimerModal 
         visible={showSleepTimer} 
         onClose={() => setShowSleepTimer(false)} 
       />
 
-      {/* Premium Modal */}
       <PremiumModal 
         visible={showPremium} 
         onClose={() => setShowPremium(false)} 
@@ -397,7 +435,6 @@ const PlayerScreen = ({ navigation }) => {
 const styles = StyleSheet.create({
   container: { flex: 1, paddingHorizontal: SIZES.paddingXXL },
   
-  // Header
   header: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -411,16 +448,12 @@ const styles = StyleSheet.create({
   headerTitle: { fontSize: SIZES.fontSM, color: COLORS.textMuted, letterSpacing: 2 },
   swipeHintHeader: { fontSize: 10, color: COLORS.textDim, marginTop: 2 },
   
-  // Swipeable content
-  swipeableContent: {
-    alignItems: 'center',
-  },
+  swipeableContent: { alignItems: 'center' },
   
-  // Artwork
-  artworkContainer: { alignItems: 'center', marginBottom: 20 },
+  artworkContainer: { alignItems: 'center', marginBottom: 16 },
   artwork: {
-    width: 280,
-    height: 280,
+    width: 260,
+    height: 260,
     borderRadius: SIZES.radiusXXL,
     alignItems: 'center',
     justifyContent: 'flex-end',
@@ -429,29 +462,53 @@ const styles = StyleSheet.create({
   },
   soundWaves: { flexDirection: 'row', gap: 4, alignItems: 'flex-end' },
   wave: { width: 4, backgroundColor: 'rgba(255, 255, 255, 0.6)', borderRadius: 2 },
-  swipeHint: {
-    fontSize: SIZES.fontXS,
-    color: COLORS.textDim,
-    marginTop: SIZES.paddingMD,
-  },
+  swipeHint: { fontSize: SIZES.fontXS, color: COLORS.textDim, marginTop: SIZES.paddingMD },
   
-  // Track Info
-  trackInfo: { alignItems: 'center', marginBottom: 20 },
-  trackTitle: { fontSize: SIZES.font4XL, fontWeight: '300', color: COLORS.textPrimary, textAlign: 'center' },
-  trackArtist: { fontSize: SIZES.fontMD + 1, color: COLORS.textMuted, marginTop: SIZES.paddingSM },
+  trackInfo: { alignItems: 'center', marginBottom: 16 },
+  trackTitle: { fontSize: SIZES.font3XL, fontWeight: '300', color: COLORS.textPrimary, textAlign: 'center' },
+  trackArtist: { fontSize: SIZES.fontMD, color: COLORS.textMuted, marginTop: SIZES.paddingSM },
   
   // Progress
-  progressContainer: { marginBottom: 20, paddingHorizontal: SIZES.paddingMD },
-  progressTrack: { height: 4, backgroundColor: COLORS.progressTrack, borderRadius: 2, marginBottom: SIZES.paddingSM },
-  progressBar: { height: '100%', borderRadius: 2 },
-  progressTimes: { flexDirection: 'row', justifyContent: 'space-between' },
+  progressContainer: { marginBottom: 16, paddingHorizontal: SIZES.paddingSM },
+  slider: {
+    width: '100%',
+    height: 40,
+  },
+  progressTimes: { flexDirection: 'row', justifyContent: 'space-between', paddingHorizontal: SIZES.paddingSM },
   progressTime: { fontSize: SIZES.fontSM, color: COLORS.textMuted },
   
   // Controls
-  controls: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 32, marginBottom: 20 },
+  controls: { 
+    flexDirection: 'row', 
+    alignItems: 'center', 
+    justifyContent: 'center', 
+    gap: 16, 
+    marginBottom: 20,
+  },
+  secondaryControlButton: { 
+    padding: SIZES.paddingSM,
+    width: 44,
+    alignItems: 'center',
+  },
   controlButton: { padding: SIZES.paddingSM },
   playButton: { ...SHADOWS.medium },
-  playButtonGradient: { width: 72, height: 72, borderRadius: 36, alignItems: 'center', justifyContent: 'center' },
+  playButtonGradient: { width: 68, height: 68, borderRadius: 34, alignItems: 'center', justifyContent: 'center' },
+  repeatOneBadge: {
+    position: 'absolute',
+    top: -4,
+    right: -4,
+    backgroundColor: COLORS.accent,
+    width: 14,
+    height: 14,
+    borderRadius: 7,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  repeatOneText: {
+    fontSize: 9,
+    fontWeight: 'bold',
+    color: COLORS.white,
+  },
   
   // Actions
   actions: { flexDirection: 'row', justifyContent: 'center', gap: 48 },

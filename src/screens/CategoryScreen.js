@@ -23,9 +23,9 @@ const CATEGORY_DATA = {
     gradient: ['#1a2a4a', '#0a1a2a'],
     accentColor: '#6b8cce',
     sessions: [
-      { id: 'sleep_1', title: 'Deep Sleep', duration: '45 min', description: 'Drift into restful slumber', image: 'twilight' },
-      { id: 'sleep_2', title: 'Sleep Stories', duration: '30 min', description: 'Calming bedtime tales', image: 'night' },
-      { id: 'sleep_3', title: 'Rain Sounds', duration: '60 min', description: 'Gentle rainfall for sleep', image: 'ocean' },
+      { id: 'sleep_s1', title: 'Deep Sleep', duration: '45 min', description: 'Drift into restful slumber', image: 'twilight' },
+      { id: 'sleep_s2', title: 'Sleep Stories', duration: '30 min', description: 'Calming bedtime tales', image: 'night' },
+      { id: 'sleep_s3', title: 'Rain Sounds', duration: '60 min', description: 'Gentle rainfall for sleep', image: 'ocean' },
     ],
     tracks: [
       { id: 'sleep_t1', title: 'Midnight Calm', artist: 'Glacier', duration: '8:32', albumId: 'sleep' },
@@ -46,9 +46,9 @@ const CATEGORY_DATA = {
     gradient: ['#2a3a2a', '#1a2a1a'],
     accentColor: '#7bc5a3',
     sessions: [
-      { id: 'focus_1', title: 'Deep Work', duration: '25 min', description: 'Pomodoro focus session', image: 'aurora' },
-      { id: 'focus_2', title: 'Flow State', duration: '45 min', description: 'Enter the zone', image: 'forest' },
-      { id: 'focus_3', title: 'Study Session', duration: '60 min', description: 'Concentration music', image: 'aurora' },
+      { id: 'focus_s1', title: 'Deep Work', duration: '25 min', description: 'Pomodoro focus session', image: 'aurora' },
+      { id: 'focus_s2', title: 'Flow State', duration: '45 min', description: 'Enter the zone', image: 'forest' },
+      { id: 'focus_s3', title: 'Study Session', duration: '60 min', description: 'Concentration music', image: 'aurora' },
     ],
     tracks: [
       { id: 'focus_t1', title: 'Clear Mind', artist: 'Glacier', duration: '5:20', albumId: 'focus' },
@@ -69,9 +69,9 @@ const CATEGORY_DATA = {
     gradient: ['#2a4a4a', '#1a3a3a'],
     accentColor: '#4a9a9a',
     sessions: [
-      { id: 'relax_1', title: 'Stress Relief', duration: '20 min', description: 'Let go of tension', image: 'ocean' },
-      { id: 'relax_2', title: 'Nature Escape', duration: '30 min', description: 'Forest and stream sounds', image: 'forest' },
-      { id: 'relax_3', title: 'Spa Session', duration: '45 min', description: 'Peaceful relaxation', image: 'horizon' },
+      { id: 'relax_s1', title: 'Stress Relief', duration: '20 min', description: 'Let go of tension', image: 'ocean' },
+      { id: 'relax_s2', title: 'Nature Escape', duration: '30 min', description: 'Forest and stream sounds', image: 'forest' },
+      { id: 'relax_s3', title: 'Spa Session', duration: '45 min', description: 'Peaceful relaxation', image: 'horizon' },
     ],
     tracks: [
       { id: 'relax_t1', title: 'Ocean Breeze', artist: 'Glacier', duration: '6:40', albumId: 'relax' },
@@ -92,9 +92,9 @@ const CATEGORY_DATA = {
     gradient: ['#3a2a4a', '#2a1a3a'],
     accentColor: '#a17bc5',
     sessions: [
-      { id: 'meditate_1', title: 'Morning Meditation', duration: '10 min', description: 'Start your day mindfully', image: 'horizon' },
-      { id: 'meditate_2', title: 'Breathing Exercise', duration: '15 min', description: 'Guided breathwork', image: 'twilight' },
-      { id: 'meditate_3', title: 'Body Scan', duration: '20 min', description: 'Full body relaxation', image: 'night' },
+      { id: 'meditate_s1', title: 'Morning Meditation', duration: '10 min', description: 'Start your day mindfully', image: 'horizon' },
+      { id: 'meditate_s2', title: 'Breathing Exercise', duration: '15 min', description: 'Guided breathwork', image: 'twilight' },
+      { id: 'meditate_s3', title: 'Body Scan', duration: '20 min', description: 'Full body relaxation', image: 'night' },
     ],
     tracks: [
       { id: 'meditate_t1', title: 'Inner Peace', artist: 'Glacier', duration: '10:00', albumId: 'meditate' },
@@ -112,10 +112,12 @@ const CATEGORY_DATA = {
 
 const CategoryScreen = ({ route, navigation }) => {
   const { category } = route.params;
-  const { playTrack, currentTrack } = usePlayer();
+  const { playTrack, currentTrack, setPlayQueue } = usePlayer();
   const insets = useSafeAreaInsets();
   
-  const data = CATEGORY_DATA[category] || CATEGORY_DATA.sleep;
+  // Get the correct category data - make sure we use the exact category ID
+  const categoryId = category?.toLowerCase() || 'sleep';
+  const data = CATEGORY_DATA[categoryId] || CATEGORY_DATA.sleep;
 
   // Calculate bottom padding based on whether mini player is showing
   const bottomPadding = currentTrack 
@@ -123,16 +125,32 @@ const CategoryScreen = ({ route, navigation }) => {
     : SIZES.tabBarHeight + insets.bottom + 20;
 
   const handleSessionPress = (session) => {
+    // Set queue to all sessions in this category
+    const allSessions = data.sessions.map(s => ({
+      ...s,
+      artist: 'Glacier Session',
+      type: 'session',
+    }));
+    setPlayQueue(allSessions);
+    
     playTrack({
       ...session,
       artist: 'Glacier Session',
       type: 'session',
-    });
+    }, allSessions);
+  };
+
+  const handleTrackPress = (track) => {
+    // Set queue to all tracks in this category
+    setPlayQueue(data.tracks);
+    playTrack(track, data.tracks);
   };
 
   const handlePlaylistPress = (playlist) => {
+    // For now, play the first track in the category
     if (data.tracks.length > 0) {
-      playTrack(data.tracks[0]);
+      setPlayQueue(data.tracks);
+      playTrack(data.tracks[0], data.tracks);
     }
   };
 
@@ -236,7 +254,7 @@ const CategoryScreen = ({ route, navigation }) => {
               <TrackItem
                 key={track.id}
                 track={track}
-                onPress={playTrack}
+                onPress={handleTrackPress}
               />
             ))}
           </View>

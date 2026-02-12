@@ -6,3 +6,6 @@ export { default as ProfileScreen } from './ProfileScreen';
 export { default as PlayerScreen } from './PlayerScreen';
 export { default as CreatePlaylistScreen } from './CreatePlaylistScreen';
 export { default as CategoryScreen } from './CategoryScreen';
+export { default as AlbumDetailScreen } from './AlbumDetailScreen';
+export { default as PlaylistDetailScreen } from './PlaylistDetailScreen';
+export { default as PodcastDetailScreen } from './PodcastDetailScreen';

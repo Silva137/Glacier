@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, StyleSheet, Platform } from 'react-native';
+import { View, StyleSheet } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
@@ -19,9 +19,107 @@ import {
   CreatePlaylistScreen,
 } from '../screens';
 import CategoryScreen from '../screens/CategoryScreen';
+import AlbumDetailScreen from '../screens/AlbumDetailScreen';
+import PlaylistDetailScreen from '../screens/PlaylistDetailScreen';
+import PodcastDetailScreen from '../screens/PodcastDetailScreen';
+import NewReleasesScreen from '../screens/NewReleasesScreen';
+import SessionsScreen from '../screens/SessionsScreen';
 
 const Tab = createBottomTabNavigator();
 const Stack = createNativeStackNavigator();
+
+/* -------------------- */
+/* Home Stack */
+/* -------------------- */
+function HomeStack() {
+  return (
+    <Stack.Navigator screenOptions={{ headerShown: false }}>
+      <Stack.Screen name="HomeMain" component={HomeScreen} />
+      <Stack.Screen 
+        name="Category" 
+        component={CategoryScreen}
+        options={{ animation: 'slide_from_right' }}
+      />
+      <Stack.Screen 
+        name="AlbumDetail" 
+        component={AlbumDetailScreen}
+        options={{ animation: 'slide_from_right' }}
+      />
+      <Stack.Screen 
+        name="PlaylistDetail" 
+        component={PlaylistDetailScreen}
+        options={{ animation: 'slide_from_right' }}
+      />
+      <Stack.Screen 
+        name="PodcastDetail" 
+        component={PodcastDetailScreen}
+        options={{ animation: 'slide_from_right' }}
+      />
+      <Stack.Screen 
+        name="NewReleases" 
+        component={NewReleasesScreen}
+        options={{ animation: 'slide_from_right' }}
+      />
+      <Stack.Screen 
+        name="Sessions" 
+        component={SessionsScreen}
+        options={{ animation: 'slide_from_right' }}
+      />
+    </Stack.Navigator>
+  );
+}
+
+/* -------------------- */
+/* Browse Stack */
+/* -------------------- */
+function BrowseStack() {
+  return (
+    <Stack.Navigator screenOptions={{ headerShown: false }}>
+      <Stack.Screen name="BrowseMain" component={BrowseScreen} />
+      <Stack.Screen 
+        name="AlbumDetail" 
+        component={AlbumDetailScreen}
+        options={{ animation: 'slide_from_right' }}
+      />
+      <Stack.Screen 
+        name="PlaylistDetail" 
+        component={PlaylistDetailScreen}
+        options={{ animation: 'slide_from_right' }}
+      />
+      <Stack.Screen 
+        name="PodcastDetail" 
+        component={PodcastDetailScreen}
+        options={{ animation: 'slide_from_right' }}
+      />
+      <Stack.Screen 
+        name="CreatePlaylist" 
+        component={CreatePlaylistScreen}
+        options={{ presentation: 'fullScreenModal' }}
+      />
+    </Stack.Navigator>
+  );
+}
+
+/* -------------------- */
+/* Library Stack */
+/* -------------------- */
+function LibraryStack() {
+  return (
+    <Stack.Navigator screenOptions={{ headerShown: false }}>
+      <Stack.Screen name="LibraryMain" component={LibraryScreen} />
+      <Stack.Screen 
+        name="AlbumDetail" 
+        component={AlbumDetailScreen}
+        options={{ animation: 'slide_from_right' }}
+      />
+      <Stack.Screen 
+        name="PlaylistDetail" 
+        component={PlaylistDetailScreen}
+        options={{ animation: 'slide_from_right' }}
+      />
+    </Stack.Navigator>
+  );
+}
 
 /* -------------------- */
 /* Bottom Tabs */
@@ -71,9 +169,9 @@ function TabNavigator() {
           },
         })}
       >
-        <Tab.Screen name="Home" component={HomeScreen} />
-        <Tab.Screen name="Browse" component={BrowseScreen} />
-        <Tab.Screen name="Library" component={LibraryScreen} />
+        <Tab.Screen name="Home" component={HomeStack} />
+        <Tab.Screen name="Browse" component={BrowseStack} />
+        <Tab.Screen name="Library" component={LibraryStack} />
         <Tab.Screen name="Profile" component={ProfileScreen} />
       </Tab.Navigator>
 
@@ -84,19 +182,20 @@ function TabNavigator() {
 }
 
 /* -------------------- */
-/* Main Stack */
+/* Root Navigator */
 /* -------------------- */
+const RootStack = createNativeStackNavigator();
+
 export default function MainNavigator() {
   return (
     <NavigationContainer>
-      <Stack.Navigator screenOptions={{ headerShown: false }}>
-        <Stack.Screen
+      <RootStack.Navigator screenOptions={{ headerShown: false }}>
+        <RootStack.Screen
           name="Main"
           component={TabNavigator}
-          options={{ animation: 'none' }}
         />
-
-        <Stack.Screen
+        
+        <RootStack.Screen
           name="Player"
           component={PlayerScreen}
           options={{
@@ -105,23 +204,7 @@ export default function MainNavigator() {
             gestureEnabled: true,
           }}
         />
-
-        <Stack.Screen
-          name="CreatePlaylist"
-          component={CreatePlaylistScreen}
-          options={{
-            presentation: 'fullScreenModal',
-          }}
-        />
-
-        <Stack.Screen
-          name="Category"
-          component={CategoryScreen}
-          options={{
-            animation: 'slide_from_right',
-          }}
-        />
-      </Stack.Navigator>
+      </RootStack.Navigator>
     </NavigationContainer>
   );
 }
