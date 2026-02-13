@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "708264130749",
+    "project_id": "glacier-49de9",
+    "storage_bucket": "glacier-49de9.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:708264130749:android:b58ee60e20779487c8dfd4",
+        "android_client_info": {
+          "package_name": "com.glacier"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCrwRzSJJgoKw_3uXeGONsGdqkk4mML3iQ"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

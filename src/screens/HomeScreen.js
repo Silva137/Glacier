@@ -1,3 +1,4 @@
+// src/screens/HomeScreen.js
 import React, { useState } from 'react';
 import {
   View,
@@ -6,13 +7,14 @@ import {
   TouchableOpacity,
   StyleSheet,
   StatusBar,
+  ActivityIndicator,
 } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import Icon from 'react-native-vector-icons/Ionicons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { COLORS, SIZES, GRADIENTS } from '../constants/theme';
-import { ALBUMS, SESSIONS, TRACKS, CATEGORIES, FEATURED_CONTENT } from '../constants/data';
 import { usePlayer } from '../hooks/usePlayer';
+import { useData } from '../hooks/useData';
 import {
   GradientBackground,
   AlbumCard,
@@ -24,13 +26,31 @@ import PremiumModal from './modals/PremiumModal';
 
 const HomeScreen = ({ navigation }) => {
   const { playTrack, sleepTimerActive, sleepTimer, isPremium, setPlayQueue } = usePlayer();
+  const { 
+    albums, 
+    sessions, 
+    tracks, 
+    categories, 
+    featured,
+    isLoading,
+    getNewReleases,
+    getPopularTracks,
+  } = useData();
+  
   const [showPremium, setShowPremium] = useState(false);
 
+  // Get data from Firebase
+  const newReleases = getNewReleases(6);
+  const quickSessions = sessions.slice(0, 6);
+  const popularTracks = getPopularTracks(5);
+
   const handlePlayFeatured = () => {
-    playTrack({
-      ...FEATURED_CONTENT,
-      artist: 'Featured Session',
-    });
+    if (featured) {
+      playTrack({
+        ...featured,
+        artist: 'Featured Session',
+      });
+    }
   };
 
   const handleCategoryPress = (category) => {
@@ -42,8 +62,7 @@ const HomeScreen = ({ navigation }) => {
   };
 
   const handleSessionPress = (session) => {
-    // Set queue to all sessions
-    const sessionQueue = SESSIONS.map(s => ({
+    const sessionQueue = sessions.map(s => ({
       ...s,
       artist: 'Timed Session',
       type: 'session',
@@ -57,7 +76,6 @@ const HomeScreen = ({ navigation }) => {
     }, sessionQueue);
   };
 
-  // Navigate to dedicated See All pages
   const handleSeeAllAlbums = () => {
     navigation.navigate('NewReleases');
   };
@@ -69,6 +87,18 @@ const HomeScreen = ({ navigation }) => {
   const handleStartTrial = () => {
     setShowPremium(true);
   };
+
+  // Loading state
+  if (isLoading) {
+    return (
+      <GradientBackground type="background">
+        <SafeAreaView style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={COLORS.accent} />
+          <Text style={styles.loadingText}>Loading...</Text>
+        </SafeAreaView>
+      </GradientBackground>
+    );
+  }
 
   return (
     <GradientBackground type="background">
@@ -93,90 +123,98 @@ const HomeScreen = ({ navigation }) => {
           </View>
 
           {/* Featured Card */}
-          <TouchableOpacity 
-            style={styles.featuredContainer}
-            onPress={handlePlayFeatured}
-            activeOpacity={0.9}
-          >
-            <LinearGradient
-              colors={GRADIENTS.aurora}
-              style={styles.featuredCard}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
+          {featured && (
+            <TouchableOpacity 
+              style={styles.featuredContainer}
+              onPress={handlePlayFeatured}
+              activeOpacity={0.9}
             >
-              <Text style={styles.featuredSubtitle}>{FEATURED_CONTENT.subtitle}</Text>
-              <Text style={styles.featuredTitle}>{FEATURED_CONTENT.title}</Text>
-              <View style={styles.featuredFooter}>
-                <Text style={styles.featuredDuration}>{FEATURED_CONTENT.duration}</Text>
-                <View style={styles.playButton}>
-                  <Icon name="play" size={20} color={COLORS.white} />
+              <LinearGradient
+                colors={GRADIENTS[featured.gradient] || GRADIENTS.aurora}
+                style={styles.featuredCard}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+              >
+                <Text style={styles.featuredSubtitle}>{featured.subtitle || "TONIGHT'S FEATURED"}</Text>
+                <Text style={styles.featuredTitle}>{featured.title}</Text>
+                <View style={styles.featuredFooter}>
+                  <Text style={styles.featuredDuration}>{featured.duration}</Text>
+                  <View style={styles.playButton}>
+                    <Icon name="play" size={20} color={COLORS.white} />
+                  </View>
                 </View>
-              </View>
-            </LinearGradient>
-          </TouchableOpacity>
+              </LinearGradient>
+            </TouchableOpacity>
+          )}
 
           {/* Categories */}
-          <ScrollView 
-            horizontal 
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.categoriesContainer}
-          >
-            {CATEGORIES.map(category => (
-              <CategoryButton
-                key={category.id}
-                category={category}
-                onPress={handleCategoryPress}
-              />
-            ))}
-          </ScrollView>
+          {categories.length > 0 && (
+            <ScrollView 
+              horizontal 
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.categoriesContainer}
+            >
+              {categories.map(category => (
+                <CategoryButton
+                  key={category.id}
+                  category={category}
+                  onPress={handleCategoryPress}
+                />
+              ))}
+            </ScrollView>
+          )}
 
           {/* New Releases */}
-          <View style={styles.section}>
-            <View style={styles.sectionHeader}>
-              <Text style={styles.sectionTitle}>New Releases</Text>
-              <TouchableOpacity onPress={handleSeeAllAlbums}>
-                <Text style={styles.seeAll}>See all</Text>
-              </TouchableOpacity>
+          {newReleases.length > 0 && (
+            <View style={styles.section}>
+              <View style={styles.sectionHeader}>
+                <Text style={styles.sectionTitle}>New Releases</Text>
+                <TouchableOpacity onPress={handleSeeAllAlbums}>
+                  <Text style={styles.seeAll}>See all</Text>
+                </TouchableOpacity>
+              </View>
+              <ScrollView 
+                horizontal 
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.horizontalList}
+              >
+                {newReleases.map(album => (
+                  <AlbumCard
+                    key={album.id}
+                    item={album}
+                    onPress={handleAlbumPress}
+                    showBadge
+                    badgeText={`${album.trackCount} tracks`}
+                  />
+                ))}
+              </ScrollView>
             </View>
-            <ScrollView 
-              horizontal 
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={styles.horizontalList}
-            >
-              {ALBUMS.slice(0, 4).map(album => (
-                <AlbumCard
-                  key={album.id}
-                  item={album}
-                  onPress={handleAlbumPress}
-                  showBadge
-                  badgeText={`${album.tracks} tracks`}
-                />
-              ))}
-            </ScrollView>
-          </View>
+          )}
 
           {/* Quick Sessions */}
-          <View style={styles.section}>
-            <View style={styles.sectionHeader}>
-              <Text style={styles.sectionTitle}>Quick Sessions</Text>
-              <TouchableOpacity onPress={handleSeeAllSessions}>
-                <Text style={styles.seeAll}>See all</Text>
-              </TouchableOpacity>
+          {quickSessions.length > 0 && (
+            <View style={styles.section}>
+              <View style={styles.sectionHeader}>
+                <Text style={styles.sectionTitle}>Quick Sessions</Text>
+                <TouchableOpacity onPress={handleSeeAllSessions}>
+                  <Text style={styles.seeAll}>See all</Text>
+                </TouchableOpacity>
+              </View>
+              <ScrollView 
+                horizontal 
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.horizontalList}
+              >
+                {quickSessions.map(session => (
+                  <SessionCard
+                    key={session.id}
+                    session={session}
+                    onPress={handleSessionPress}
+                  />
+                ))}
+              </ScrollView>
             </View>
-            <ScrollView 
-              horizontal 
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={styles.horizontalList}
-            >
-              {SESSIONS.slice(0, 4).map(session => (
-                <SessionCard
-                  key={session.id}
-                  session={session}
-                  onPress={handleSessionPress}
-                />
-              ))}
-            </ScrollView>
-          </View>
+          )}
 
           {/* Premium Banner (if not premium) */}
           {!isPremium && (
@@ -214,18 +252,20 @@ const HomeScreen = ({ navigation }) => {
           )}
 
           {/* Popular Tracks */}
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Popular Tracks</Text>
-            <View style={styles.tracksList}>
-              {TRACKS.slice(0, 5).map(track => (
-                <TrackItem
-                  key={track.id}
-                  track={track}
-                  onPress={playTrack}
-                />
-              ))}
+          {popularTracks.length > 0 && (
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>Popular Tracks</Text>
+              <View style={styles.tracksList}>
+                {popularTracks.map(track => (
+                  <TrackItem
+                    key={track.id}
+                    track={track}
+                    onPress={playTrack}
+                  />
+                ))}
+              </View>
             </View>
-          </View>
+          )}
 
           {/* Bottom padding for mini player */}
           <View style={styles.bottomPadding} />
@@ -244,6 +284,16 @@ const HomeScreen = ({ navigation }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+  },
+  loadingContainer: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  loadingText: {
+    marginTop: SIZES.paddingLG,
+    fontSize: SIZES.fontMD,
+    color: COLORS.textMuted,
   },
   scrollContent: {
     paddingBottom: SIZES.tabBarHeight + SIZES.miniPlayerHeight + 20,
@@ -336,6 +386,7 @@ const styles = StyleSheet.create({
     fontSize: SIZES.font2XL + 2,
     fontWeight: '300',
     color: COLORS.textPrimary,
+    paddingHorizontal: SIZES.paddingXXL,
   },
   seeAll: {
     fontSize: SIZES.fontSM,

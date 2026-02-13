@@ -1,3 +1,4 @@
+// src/screens/NewReleasesScreen.js
 import React from 'react';
 import {
   View,
@@ -6,17 +7,19 @@ import {
   TouchableOpacity,
   StyleSheet,
   StatusBar,
+  ActivityIndicator,
 } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import Icon from 'react-native-vector-icons/Ionicons';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { COLORS, SIZES, GRADIENTS, SHADOWS } from '../constants/theme';
-import { ALBUMS } from '../constants/data';
 import { usePlayer } from '../hooks/usePlayer';
+import { useData } from '../hooks/useData';
 import { GradientBackground } from '../components';
 
 const NewReleasesScreen = ({ navigation }) => {
   const { currentTrack } = usePlayer();
+  const { albums, isLoading } = useData();
   const insets = useSafeAreaInsets();
 
   const bottomPadding = currentTrack 
@@ -26,6 +29,16 @@ const NewReleasesScreen = ({ navigation }) => {
   const handleAlbumPress = (album) => {
     navigation.navigate('AlbumDetail', { album });
   };
+
+  if (isLoading) {
+    return (
+      <GradientBackground type="background">
+        <SafeAreaView style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={COLORS.accent} />
+        </SafeAreaView>
+      </GradientBackground>
+    );
+  }
 
   return (
     <GradientBackground type="background">
@@ -49,12 +62,12 @@ const NewReleasesScreen = ({ navigation }) => {
 
           {/* Subtitle */}
           <Text style={styles.subtitle}>
-            {ALBUMS.length} albums • Fresh sounds for you
+            {albums.length} albums • Fresh sounds for you
           </Text>
 
           {/* Albums Grid */}
           <View style={styles.albumsGrid}>
-            {ALBUMS.map(album => (
+            {albums.map(album => (
               <TouchableOpacity
                 key={album.id}
                 style={styles.albumCard}
@@ -62,13 +75,13 @@ const NewReleasesScreen = ({ navigation }) => {
                 activeOpacity={0.8}
               >
                 <LinearGradient
-                  colors={GRADIENTS[album.image] || GRADIENTS.aurora}
+                  colors={GRADIENTS[album.gradient] || GRADIENTS.aurora}
                   style={styles.albumArt}
                   start={{ x: 0, y: 0 }}
                   end={{ x: 1, y: 1 }}
                 >
                   <View style={styles.tracksBadge}>
-                    <Text style={styles.tracksBadgeText}>{album.tracks} tracks</Text>
+                    <Text style={styles.tracksBadgeText}>{album.trackCount} tracks</Text>
                   </View>
                 </LinearGradient>
                 <Text style={styles.albumTitle} numberOfLines={1}>{album.title}</Text>
@@ -84,6 +97,11 @@ const NewReleasesScreen = ({ navigation }) => {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
+  loadingContainer: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   scrollContent: {},
   
   header: {

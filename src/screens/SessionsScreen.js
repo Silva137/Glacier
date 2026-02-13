@@ -1,4 +1,5 @@
-import React from 'react';
+// src/screens/SessionsScreen.js
+import React, { useMemo } from 'react';
 import {
   View,
   Text,
@@ -6,17 +7,19 @@ import {
   TouchableOpacity,
   StyleSheet,
   StatusBar,
+  ActivityIndicator,
 } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import Icon from 'react-native-vector-icons/Ionicons';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { COLORS, SIZES, GRADIENTS, SHADOWS } from '../constants/theme';
-import { SESSIONS } from '../constants/data';
 import { usePlayer } from '../hooks/usePlayer';
+import { useData } from '../hooks/useData';
 import { GradientBackground } from '../components';
 
 const SessionsScreen = ({ navigation }) => {
   const { currentTrack, playTrack, setPlayQueue } = usePlayer();
+  const { sessions, isLoading } = useData();
   const insets = useSafeAreaInsets();
 
   const bottomPadding = currentTrack 
@@ -24,35 +27,39 @@ const SessionsScreen = ({ navigation }) => {
     : SIZES.tabBarHeight + insets.bottom + 20;
 
   const handleSessionPress = (session) => {
-    // Set queue to all sessions
-    setPlayQueue(SESSIONS.map(s => ({
+    const sessionQueue = sessions.map(s => ({
       ...s,
       artist: 'Glacier Session',
       type: 'session',
-    })));
+    }));
+    setPlayQueue(sessionQueue);
     
     playTrack({
       ...session,
       artist: 'Glacier Session',
       type: 'session',
-    });
+    }, sessionQueue);
   };
 
   // Group sessions by duration
-  const shortSessions = SESSIONS.filter(s => {
-    const mins = parseInt(s.duration);
-    return mins <= 15;
-  });
-  
-  const mediumSessions = SESSIONS.filter(s => {
-    const mins = parseInt(s.duration);
-    return mins > 15 && mins <= 30;
-  });
-  
-  const longSessions = SESSIONS.filter(s => {
-    const mins = parseInt(s.duration);
-    return mins > 30;
-  });
+  const groupedSessions = useMemo(() => {
+    const shortSessions = sessions.filter(s => {
+      const mins = parseInt(s.duration);
+      return mins <= 15;
+    });
+    
+    const mediumSessions = sessions.filter(s => {
+      const mins = parseInt(s.duration);
+      return mins > 15 && mins <= 30;
+    });
+    
+    const longSessions = sessions.filter(s => {
+      const mins = parseInt(s.duration);
+      return mins > 30;
+    });
+
+    return { shortSessions, mediumSessions, longSessions };
+  }, [sessions]);
 
   const renderSessionCard = (session) => (
     <TouchableOpacity
@@ -62,7 +69,7 @@ const SessionsScreen = ({ navigation }) => {
       activeOpacity={0.8}
     >
       <LinearGradient
-        colors={GRADIENTS[session.image] || GRADIENTS.twilight}
+        colors={GRADIENTS[session.gradient] || GRADIENTS.twilight}
         style={styles.sessionArt}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
@@ -78,6 +85,18 @@ const SessionsScreen = ({ navigation }) => {
       <Text style={styles.sessionDescription} numberOfLines={1}>{session.description}</Text>
     </TouchableOpacity>
   );
+
+  if (isLoading) {
+    return (
+      <GradientBackground type="background">
+        <SafeAreaView style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={COLORS.accent} />
+        </SafeAreaView>
+      </GradientBackground>
+    );
+  }
+
+  const { shortSessions, mediumSessions, longSessions } = groupedSessions;
 
   return (
     <GradientBackground type="background">
@@ -101,7 +120,7 @@ const SessionsScreen = ({ navigation }) => {
 
           {/* Subtitle */}
           <Text style={styles.subtitle}>
-            {SESSIONS.length} sessions • Timed audio experiences
+            {sessions.length} sessions • Timed audio experiences
           </Text>
 
           {/* Quick Sessions (≤15 min) */}
@@ -134,13 +153,11 @@ const SessionsScreen = ({ navigation }) => {
             </View>
           )}
 
-          {/* If no grouping possible, show all */}
-          {shortSessions.length === 0 && mediumSessions.length === 0 && longSessions.length === 0 && (
-            <View style={styles.section}>
-              <Text style={styles.sectionTitle}>All Sessions</Text>
-              <View style={styles.sessionsGrid}>
-                {SESSIONS.map(renderSessionCard)}
-              </View>
+          {/* If no sessions */}
+          {sessions.length === 0 && (
+            <View style={styles.emptyState}>
+              <Icon name="time-outline" size={64} color={COLORS.textDim} />
+              <Text style={styles.emptyText}>No sessions available</Text>
             </View>
           )}
         </ScrollView>
@@ -151,6 +168,11 @@ const SessionsScreen = ({ navigation }) => {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
+  loadingContainer: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   scrollContent: {},
   
   header: {
@@ -250,6 +272,18 @@ const styles = StyleSheet.create({
     fontSize: SIZES.fontSM,
     color: COLORS.textMuted,
     marginTop: 2,
+  },
+
+  emptyState: {
+    alignItems: 'center',
+    paddingVertical: 60,
+    paddingHorizontal: SIZES.paddingXXL,
+  },
+  emptyText: {
+    fontSize: SIZES.fontMD,
+    color: COLORS.textMuted,
+    marginTop: SIZES.paddingLG,
+    textAlign: 'center',
   },
 });
 

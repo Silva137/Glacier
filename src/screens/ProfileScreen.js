@@ -23,6 +23,9 @@ import NotificationsModal from './modals/NotificationsModal';
 import PrivacyModal from './modals/PrivacyModal';
 import HelpSupportModal from './modals/HelpSupportModal';
 import SignInModal from './modals/SignInModal';
+// In ProfileScreen.js, add import:
+import DevTools from '../components/DevTools';
+
 
 const ProfileScreen = ({ navigation }) => {
   const { isPremium, activatePremium, deactivatePremium, sleepTimerActive, sleepTimer } = usePlayer();
@@ -208,6 +211,7 @@ const ProfileScreen = ({ navigation }) => {
             <Text style={styles.appName}>Glacier</Text>
             <Text style={styles.appVersion}>Version 1.0.0</Text>
           </View>
+          <DevTools />
 
           <View style={styles.bottomPadding} />
         </ScrollView>

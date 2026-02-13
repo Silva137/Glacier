@@ -1,4 +1,5 @@
-import React from 'react';
+// src/screens/AlbumDetailScreen.js
+import React, { useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -6,48 +7,54 @@ import {
   TouchableOpacity,
   StyleSheet,
   StatusBar,
+  ActivityIndicator,
 } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import Icon from 'react-native-vector-icons/Ionicons';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { COLORS, SIZES, GRADIENTS, SHADOWS } from '../constants/theme';
-import { TRACKS } from '../constants/data';
 import { usePlayer } from '../hooks/usePlayer';
+import { useData } from '../hooks/useData';
 import { GradientBackground, TrackItem } from '../components';
 
 const AlbumDetailScreen = ({ route, navigation }) => {
   const { album } = route.params;
   const { playTrack, currentTrack, setPlayQueue } = usePlayer();
+  const { getTracksByAlbum } = useData();
   const insets = useSafeAreaInsets();
 
-  // Get tracks for this album
-  const albumTracks = TRACKS.filter(t => t.albumId === album.id);
+  const [tracks, setTracks] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    // Get tracks for this album
+    const albumTracks = getTracksByAlbum(album.id);
+    setTracks(albumTracks);
+    setIsLoading(false);
+  }, [album.id, getTracksByAlbum]);
 
   const bottomPadding = currentTrack 
     ? SIZES.tabBarHeight + SIZES.miniPlayerHeight + insets.bottom + 30
     : SIZES.tabBarHeight + insets.bottom + 20;
 
   const handlePlayAll = () => {
-    if (albumTracks.length > 0) {
-      // Set queue to album tracks
-      if (setPlayQueue) setPlayQueue(albumTracks);
-      playTrack(albumTracks[0]);
+    if (tracks.length > 0) {
+      setPlayQueue(tracks);
+      playTrack(tracks[0], tracks);
     }
   };
 
   const handleShuffle = () => {
-    if (albumTracks.length > 0) {
-      // Shuffle the tracks
-      const shuffled = [...albumTracks].sort(() => Math.random() - 0.5);
-      if (setPlayQueue) setPlayQueue(shuffled);
-      playTrack(shuffled[0]);
+    if (tracks.length > 0) {
+      const shuffled = [...tracks].sort(() => Math.random() - 0.5);
+      setPlayQueue(shuffled);
+      playTrack(shuffled[0], shuffled);
     }
   };
 
   const handleTrackPress = (track) => {
-    // Set queue to album tracks starting from this track
-    if (setPlayQueue) setPlayQueue(albumTracks);
-    playTrack(track);
+    setPlayQueue(tracks);
+    playTrack(track, tracks);
   };
 
   return (
@@ -69,20 +76,24 @@ const AlbumDetailScreen = ({ route, navigation }) => {
           </View>
 
           {/* Album Art */}
-          <View style={styles.artContainer}>
+          <View style={styles.artworkContainer}>
             <LinearGradient
-              colors={GRADIENTS[album.image] || GRADIENTS.aurora}
-              style={styles.albumArt}
+              colors={GRADIENTS[album.gradient] || GRADIENTS.aurora}
+              style={styles.artwork}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 1 }}
-            />
+            >
+              <Icon name="musical-notes" size={64} color="rgba(255,255,255,0.3)" />
+            </LinearGradient>
           </View>
 
           {/* Album Info */}
           <View style={styles.albumInfo}>
             <Text style={styles.albumTitle}>{album.title}</Text>
             <Text style={styles.albumArtist}>{album.artist || 'Glacier'}</Text>
-            <Text style={styles.albumMeta}>{album.tracks || albumTracks.length} tracks</Text>
+            <Text style={styles.albumMeta}>
+              {album.trackCount || tracks.length} tracks • {album.totalDuration || 'Various lengths'}
+            </Text>
           </View>
 
           {/* Action Buttons */}
@@ -91,10 +102,10 @@ const AlbumDetailScreen = ({ route, navigation }) => {
               style={styles.shuffleButton}
               onPress={handleShuffle}
             >
-              <Icon name="shuffle" size={20} color={COLORS.textPrimary} />
+              <Icon name="shuffle" size={20} color={COLORS.white} />
               <Text style={styles.shuffleText}>Shuffle</Text>
             </TouchableOpacity>
-
+            
             <TouchableOpacity 
               style={styles.playAllButton}
               onPress={handlePlayAll}
@@ -105,7 +116,7 @@ const AlbumDetailScreen = ({ route, navigation }) => {
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 0 }}
               >
-                <Icon name="play" size={22} color={COLORS.white} />
+                <Icon name="play" size={20} color={COLORS.white} />
                 <Text style={styles.playAllText}>Play All</Text>
               </LinearGradient>
             </TouchableOpacity>
@@ -114,17 +125,21 @@ const AlbumDetailScreen = ({ route, navigation }) => {
           {/* Tracks List */}
           <View style={styles.tracksSection}>
             <Text style={styles.sectionTitle}>Tracks</Text>
-            {albumTracks.length > 0 ? (
-              albumTracks.map((track, index) => (
+            
+            {isLoading ? (
+              <ActivityIndicator size="small" color={COLORS.accent} style={styles.loader} />
+            ) : tracks.length > 0 ? (
+              tracks.map((track, index) => (
                 <TrackItem
                   key={track.id}
                   track={track}
                   onPress={handleTrackPress}
-                  index={index + 1}
+                  showNumber
+                  number={index + 1}
                 />
               ))
             ) : (
-              <Text style={styles.noTracks}>No tracks available</Text>
+              <Text style={styles.emptyText}>No tracks available</Text>
             )}
           </View>
         </ScrollView>
@@ -137,6 +152,7 @@ const styles = StyleSheet.create({
   container: { flex: 1 },
   scrollContent: {},
   
+  // Header
   header: {
     paddingHorizontal: SIZES.paddingXXL,
     paddingTop: SIZES.paddingLG,
@@ -150,25 +166,30 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   
-  artContainer: {
+  // Artwork
+  artworkContainer: {
     alignItems: 'center',
     marginTop: SIZES.paddingXXL,
     marginBottom: SIZES.paddingXXL,
   },
-  albumArt: {
+  artwork: {
     width: 220,
     height: 220,
     borderRadius: SIZES.radiusXXL,
+    alignItems: 'center',
+    justifyContent: 'center',
     ...SHADOWS.album,
   },
   
+  // Album Info
   albumInfo: {
     alignItems: 'center',
+    paddingHorizontal: SIZES.paddingXXL,
     marginBottom: SIZES.paddingXXL,
   },
   albumTitle: {
     fontSize: SIZES.font3XL,
-    fontWeight: '300',
+    fontWeight: '600',
     color: COLORS.textPrimary,
     textAlign: 'center',
   },
@@ -178,11 +199,12 @@ const styles = StyleSheet.create({
     marginTop: SIZES.paddingSM,
   },
   albumMeta: {
-    fontSize: SIZES.fontMD,
+    fontSize: SIZES.fontSM,
     color: COLORS.textDim,
     marginTop: SIZES.paddingXS,
   },
   
+  // Actions
   actions: {
     flexDirection: 'row',
     paddingHorizontal: SIZES.paddingXXL,
@@ -202,7 +224,7 @@ const styles = StyleSheet.create({
   shuffleText: {
     fontSize: SIZES.fontMD,
     fontWeight: '600',
-    color: COLORS.textPrimary,
+    color: COLORS.white,
   },
   playAllButton: {
     flex: 1,
@@ -222,6 +244,7 @@ const styles = StyleSheet.create({
     color: COLORS.white,
   },
   
+  // Tracks
   tracksSection: {
     paddingHorizontal: SIZES.paddingXXL,
   },
@@ -231,11 +254,14 @@ const styles = StyleSheet.create({
     color: COLORS.textPrimary,
     marginBottom: SIZES.paddingLG,
   },
-  noTracks: {
+  loader: {
+    marginVertical: SIZES.paddingXXL,
+  },
+  emptyText: {
     fontSize: SIZES.fontMD,
     color: COLORS.textMuted,
     textAlign: 'center',
-    paddingVertical: SIZES.padding3XL,
+    marginTop: SIZES.paddingXXL,
   },
 });
 
